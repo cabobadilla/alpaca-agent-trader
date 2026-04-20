@@ -2,95 +2,145 @@
 approval-bridge/services/approval_state.py
 -------------------------------------------
 Manages the lifecycle and persistence of trade plan approval records.
-
-TODO: Implement:
-      - create_plan(plan: dict) → str  (returns plan_id)
-      - get_plan(plan_id: str) → dict
-      - list_plans() → list[dict]
-      - get_status(plan_id: str) → ApprovalStatus
-      - record_decision(plan_id: str, decision: str) → dict
 """
 
 import json
 import logging
-import uuid
-from datetime import datetime, timezone
+import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from config import config
+from models.approval import ApprovalRecord, TradePlanCreate
 
 logger = logging.getLogger(__name__)
 
 
-class ApprovalStateService:
+class ApprovalStateManager:
     """File-based persistence for approval records on the shared volume."""
 
-    @property
-    def _approvals_dir(self) -> Path:
-        p = Path(config.APPROVALS_DIR)
-        p.mkdir(parents=True, exist_ok=True)
-        return p
+    def __init__(self) -> None:
+        self.approvals_dir = Path(
+            os.getenv("APPROVALS_DIR", "/data/approvals")
+        )
+        self.approval_timeout_minutes = int(
+            os.getenv("APPROVAL_TIMEOUT_MINUTES", "120")
+        )
+        self.approvals_dir.mkdir(parents=True, exist_ok=True)
 
-    def _approval_path(self, plan_id: str) -> Path:
-        return self._approvals_dir / f"approval_{plan_id}.json"
+    def _plan_path(self, plan_id: str) -> Path:
+        return self.approvals_dir / f"{plan_id}.json"
 
-    def create_plan(self, plan: dict) -> str:
+    def save_plan(self, plan: TradePlanCreate) -> ApprovalRecord:
         """
-        Persist a new trade plan approval record with PENDING status.
-
-        TODO: Implement full record creation and persistence.
-
-        Returns:
-            plan_id string.
+        Create a new approval record from a TradePlanCreate payload.
+        Persists to {APPROVALS_DIR}/{plan_id}.json.
+        Returns the newly created ApprovalRecord.
         """
-        # TODO: implement
-        logger.info("create_plan called (stub)")
-        raise NotImplementedError("create_plan not yet implemented")
+        now = datetime.now(tz=timezone.utc)
+        expires_at = now + timedelta(minutes=self.approval_timeout_minutes)
 
-    def get_plan(self, plan_id: str) -> dict:
+        record = ApprovalRecord(
+            **plan.model_dump(),
+            status="AWAITING_SEND",
+            created_at=now.isoformat(),
+            expires_at=expires_at.isoformat(),
+        )
+
+        path = self._plan_path(plan.plan_id)
+        path.write_text(record.model_dump_json(indent=2), encoding="utf-8")
+        logger.info("Saved approval record: %s → %s", plan.plan_id, path)
+        return record
+
+    def get_status(self, plan_id: str) -> ApprovalRecord | None:
         """
         Load an approval record by plan_id.
-
-        TODO: Implement file read with error handling.
+        Returns None if the file does not exist.
         """
-        # TODO: implement
-        raise NotImplementedError("get_plan not yet implemented")
+        path = self._plan_path(plan_id)
+        if not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return ApprovalRecord(**data)
+        except Exception as exc:
+            logger.error("Failed to read approval record %s: %s", plan_id, exc)
+            return None
 
-    def list_plans(self) -> list[dict]:
+    def set_decision(
+        self,
+        plan_id: str,
+        decision: str,
+        reason: str | None = None,
+    ) -> ApprovalRecord:
         """
-        Return all approval records.
-
-        TODO: Implement directory scan.
+        Record an APPROVED or REJECTED decision on an existing plan.
+        Updates decided_at, decision, rejection_reason and status.
+        Returns the updated ApprovalRecord.
+        Raises FileNotFoundError if plan does not exist.
         """
-        # TODO: implement
-        raise NotImplementedError("list_plans not yet implemented")
+        record = self.get_status(plan_id)
+        if record is None:
+            raise FileNotFoundError(f"No approval record found for plan_id={plan_id}")
 
-    def get_status(self, plan_id: str) -> str:
+        now = datetime.now(tz=timezone.utc)
+        record.decision = decision
+        record.decided_at = now.isoformat()
+        record.status = decision  # APPROVED or REJECTED
+        if reason:
+            record.rejection_reason = reason
+
+        path = self._plan_path(plan_id)
+        path.write_text(record.model_dump_json(indent=2), encoding="utf-8")
+        logger.info("Decision recorded: plan=%s → %s", plan_id, decision)
+        return record
+
+    def expire_old_plans(self) -> int:
         """
-        Return the current approval status string for a plan.
-
-        TODO: Implement via get_plan().
+        Scan APPROVALS_DIR for plans in AWAITING_REPLY status that are past
+        their expires_at timestamp.  Mark them as EXPIRED and persist.
+        Returns the count of plans expired.
         """
-        # TODO: implement
-        raise NotImplementedError("get_status not yet implemented")
+        expired_count = 0
+        now = datetime.now(tz=timezone.utc)
 
-    def record_decision(self, plan_id: str, decision: str) -> dict:
+        for json_file in self.approvals_dir.glob("*.json"):
+            try:
+                data = json.loads(json_file.read_text(encoding="utf-8"))
+                record = ApprovalRecord(**data)
+            except Exception as exc:
+                logger.warning("Skipping unreadable file %s: %s", json_file, exc)
+                continue
+
+            if record.status not in ("AWAITING_SEND", "EMAIL_SENT", "AWAITING_REPLY"):
+                continue
+
+            expires_at = datetime.fromisoformat(record.expires_at)
+            if now > expires_at:
+                record.status = "EXPIRED"
+                json_file.write_text(record.model_dump_json(indent=2), encoding="utf-8")
+                logger.info("Expired plan: %s", record.plan_id)
+                expired_count += 1
+
+        return expired_count
+
+    def list_pending(self) -> list[ApprovalRecord]:
         """
-        Persist an APPROVE or REJECT decision and timestamp.
-
-        TODO: Implement with validation (no re-deciding a closed plan).
-
-        Args:
-            plan_id:  UUID of the trade plan.
-            decision: "APPROVED" or "REJECTED"
-
-        Returns:
-            Updated approval record dict.
+        Return all records with status in (AWAITING_SEND, EMAIL_SENT, AWAITING_REPLY).
         """
-        # TODO: implement
-        logger.info("record_decision called (stub): %s → %s", plan_id, decision)
-        raise NotImplementedError("record_decision not yet implemented")
+        pending_statuses = {"AWAITING_SEND", "EMAIL_SENT", "AWAITING_REPLY"}
+        results: list[ApprovalRecord] = []
+
+        for json_file in self.approvals_dir.glob("*.json"):
+            try:
+                data = json.loads(json_file.read_text(encoding="utf-8"))
+                record = ApprovalRecord(**data)
+                if record.status in pending_statuses:
+                    results.append(record)
+            except Exception as exc:
+                logger.warning("Skipping unreadable file %s: %s", json_file, exc)
+
+        return results
 
 
 # Module-level singleton
-approval_state_service = ApprovalStateService()
+approval_state_manager = ApprovalStateManager()

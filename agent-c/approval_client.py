@@ -6,92 +6,137 @@ HTTP client for the approval-bridge FastAPI service.
 Responsibilities:
   - POST /plans        → submit a trade plan for human approval
   - GET /plans/{id}/status → poll approval status
-  - Agent-c waits up to APPROVAL_TIMEOUT_MINUTES for a decision
-
-TODO: Implement full polling loop with timeout and backoff.
+  - POST /notification/send → send notification emails
+  - poll_until_decided() → blocking poll with timeout
 """
 
 import logging
 import time
-from datetime import datetime, timezone, timedelta
-from enum import Enum
 
 import httpx
 
-from config import config
-
 logger = logging.getLogger(__name__)
 
-POLL_INTERVAL_SECONDS = 30
 
-
-class ApprovalStatus(str, Enum):
-    PENDING = "PENDING"
-    APPROVED = "APPROVED"
-    REJECTED = "REJECTED"
-    EXPIRED = "EXPIRED"
-
-
-class ApprovalClient:
+class ApprovalBridgeClient:
     """Client for the approval-bridge service."""
 
-    def __init__(self, base_url: str | None = None) -> None:
-        self.base_url = (base_url or config.APPROVAL_BRIDGE_URL).rstrip("/")
+    def __init__(self, base_url: str = "http://approval-bridge:8080") -> None:
+        self.base_url = base_url.rstrip("/")
 
-    def submit_plan(self, plan: dict) -> str:
+    def submit_plan(self, plan: dict) -> dict:
         """
-        POST the trade plan to approval-bridge.
+        POST /plans — submit a trade plan for approval.
 
-        TODO: Implement real HTTP POST /plans.
+        Args:
+            plan: Trade plan dict matching TradePlanCreate schema.
 
         Returns:
-            plan_id string returned by approval-bridge.
+            Response dict: {plan_id, expires_at, message}
         """
-        # TODO: implement
-        logger.info("submit_plan called (stub): plan_id=%s", plan.get("id"))
-        raise NotImplementedError("submit_plan not yet implemented")
-
-    def get_status(self, plan_id: str) -> ApprovalStatus:
-        """
-        GET /plans/{plan_id}/status from approval-bridge.
-
-        TODO: Implement real HTTP GET.
-
-        Returns:
-            ApprovalStatus enum value.
-        """
-        # TODO: implement
-        raise NotImplementedError("get_status not yet implemented")
-
-    def wait_for_approval(self, plan_id: str) -> ApprovalStatus:
-        """
-        Poll approval status until APPROVED/REJECTED or timeout.
-
-        Polls every POLL_INTERVAL_SECONDS seconds.
-        Gives up after config.APPROVAL_TIMEOUT_MINUTES minutes.
-
-        TODO: Replace stub with real polling loop.
-
-        Returns:
-            Final ApprovalStatus.
-        """
-        timeout_at = datetime.now(tz=timezone.utc) + timedelta(
-            minutes=config.APPROVAL_TIMEOUT_MINUTES
-        )
+        response = httpx.post(f"{self.base_url}/plans", json=plan, timeout=30)
+        response.raise_for_status()
+        result = response.json()
         logger.info(
-            "Waiting for approval of plan %s (timeout %d min)",
+            "Plan submitted to approval-bridge: %s (expires: %s)",
+            result.get("plan_id"),
+            result.get("expires_at"),
+        )
+        return result
+
+    def get_status(self, plan_id: str) -> dict:
+        """
+        GET /plans/{plan_id}/status — poll the current approval status.
+
+        Returns:
+            Status dict: {plan_id, status, decision, decided_at, expires_at}
+        """
+        response = httpx.get(
+            f"{self.base_url}/plans/{plan_id}/status", timeout=15
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def send_notification(
+        self,
+        plan_id: str,
+        ntype: str,
+        subject: str,
+        html: str,
+    ) -> bool:
+        """
+        POST /notification/send — send an alert or info notification email.
+
+        Returns:
+            True if email was sent, False otherwise.
+        """
+        payload = {
+            "plan_id": plan_id,
+            "type": ntype,
+            "email_subject": subject,
+            "email_html": html,
+        }
+        try:
+            response = httpx.post(
+                f"{self.base_url}/notification/send", json=payload, timeout=15
+            )
+            response.raise_for_status()
+            result = response.json()
+            return result.get("email_sent", False)
+        except httpx.RequestError as exc:
+            logger.error("send_notification failed: %s", exc)
+            return False
+
+    def poll_until_decided(
+        self,
+        plan_id: str,
+        timeout_minutes: int,
+        interval_seconds: int = 120,
+    ) -> str:
+        """
+        Poll approval status until a terminal state is reached.
+
+        Terminal states: APPROVED, REJECTED, EXPIRED
+        Returns 'TIMEOUT' if the timeout_minutes deadline elapses.
+
+        Args:
+            plan_id:          UUID of the plan to poll.
+            timeout_minutes:  How long to poll before giving up.
+            interval_seconds: How often to check (default 120s).
+
+        Returns:
+            One of: 'APPROVED', 'REJECTED', 'EXPIRED', 'TIMEOUT'
+        """
+        terminal_states = {"APPROVED", "REJECTED", "EXPIRED"}
+        deadline = time.monotonic() + (timeout_minutes * 60)
+
+        logger.info(
+            "Polling approval for plan %s (timeout=%d min, interval=%ds)",
             plan_id,
-            config.APPROVAL_TIMEOUT_MINUTES,
+            timeout_minutes,
+            interval_seconds,
         )
 
-        while datetime.now(tz=timezone.utc) < timeout_at:
-            # TODO: replace with self.get_status(plan_id)
-            logger.debug("Polling approval status for plan %s (stub)", plan_id)
-            time.sleep(POLL_INTERVAL_SECONDS)
+        while time.monotonic() < deadline:
+            try:
+                status_data = self.get_status(plan_id)
+                status = status_data.get("status", "")
+                logger.debug("Plan %s status: %s", plan_id, status)
 
-        logger.warning("Approval timeout reached for plan %s", plan_id)
-        return ApprovalStatus.EXPIRED
+                if status in terminal_states:
+                    logger.info("Plan %s reached terminal state: %s", plan_id, status)
+                    return status
+            except httpx.RequestError as exc:
+                logger.warning("Status poll error for %s: %s", plan_id, exc)
+            except Exception as exc:
+                logger.error("Unexpected error polling %s: %s", plan_id, exc)
 
+            # Check again before sleeping — avoid one extra sleep at deadline
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            sleep_time = min(interval_seconds, remaining)
+            time.sleep(sleep_time)
 
-# Module-level singleton
-approval_client = ApprovalClient()
+        logger.warning("Approval poll timeout reached for plan %s", plan_id)
+        return "TIMEOUT"

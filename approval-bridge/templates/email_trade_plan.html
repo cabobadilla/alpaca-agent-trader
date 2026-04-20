@@ -4,74 +4,177 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Trade Plan Approval — Alpaca Agent Trader</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 640px; margin: 40px auto; color: #333; }
-    h1   { color: #1a1a2e; }
-    .plan-id  { font-family: monospace; background: #f4f4f4; padding: 4px 8px; border-radius: 4px; }
-    .orders   { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    .orders th, .orders td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
-    .orders th  { background: #f0f0f0; }
-    .cta        { margin-top: 24px; }
-    .cta a      { display: inline-block; padding: 12px 24px; border-radius: 6px;
-                  text-decoration: none; font-weight: bold; color: #fff; }
-    .approve    { background: #2e7d32; }
-    .reject     { background: #c62828; margin-left: 12px; }
-    footer      { margin-top: 40px; font-size: 0.8em; color: #888; }
-  </style>
 </head>
-<body>
-  <h1>📈 Trade Plan Ready for Approval</h1>
+<body style="margin:0;padding:0;background-color:#f5f5f5;font-family:Arial,Helvetica,sans-serif;color:#333333;">
 
-  <p>A new trade plan has been generated and requires your review.</p>
+  <!-- Wrapper -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f5f5f5;padding:20px 0;">
+    <tr>
+      <td align="center">
+        <table width="640" cellpadding="0" cellspacing="0" border="0"
+               style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.12);">
 
-  <p><strong>Plan ID:</strong> <span class="plan-id">{{ plan_id }}</span></p>
-  <p><strong>Week:</strong> {{ week }}</p>
-  <p><strong>Generated:</strong> {{ created_at }}</p>
+          <!-- Dark header -->
+          <tr>
+            <td style="background-color:#1a1a2e;padding:28px 32px;">
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:bold;">
+                📈 Trade Plan Ready for Approval
+              </h1>
+              <p style="margin:8px 0 0 0;color:#a0a8c0;font-size:14px;">
+                Date: <strong style="color:#e0e4f0;">{{ plan.date }}</strong>
+                &nbsp;|&nbsp; Plan ID: <code style="background:#2a2a4a;color:#7ec8e3;padding:2px 6px;border-radius:4px;font-size:12px;">{{ plan.plan_id }}</code>
+              </p>
+            </td>
+          </tr>
 
-  {% if rationale %}
-  <h2>Rationale</h2>
-  <p>{{ rationale }}</p>
-  {% endif %}
+          <!-- Body -->
+          <tr>
+            <td style="padding:28px 32px;">
 
-  <h2>Orders</h2>
-  {% if orders %}
-  <table class="orders">
-    <thead>
-      <tr>
-        <th>Symbol</th>
-        <th>Side</th>
-        <th>Qty</th>
-        <th>Type</th>
-        <th>Limit Price</th>
-        <th>TIF</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for order in orders %}
-      <tr>
-        <td>{{ order.symbol }}</td>
-        <td>{{ order.side }}</td>
-        <td>{{ order.qty }}</td>
-        <td>{{ order.order_type }}</td>
-        <td>{{ order.limit_price if order.limit_price else "—" }}</td>
-        <td>{{ order.time_in_force }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
+              <!-- Portfolio Snapshot -->
+              <h2 style="color:#1a1a2e;font-size:16px;border-bottom:2px solid #e0e4f0;padding-bottom:6px;margin-top:0;">
+                Portfolio Snapshot
+              </h2>
+              <table width="100%" cellpadding="8" cellspacing="0" border="0"
+                     style="border-collapse:collapse;margin-bottom:24px;">
+                <thead>
+                  <tr style="background-color:#f0f4ff;">
+                    <th style="border:1px solid #dde3f0;text-align:left;font-size:13px;color:#555;">Equity</th>
+                    <th style="border:1px solid #dde3f0;text-align:left;font-size:13px;color:#555;">Cash</th>
+                    <th style="border:1px solid #dde3f0;text-align:left;font-size:13px;color:#555;">Buying Power</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="border:1px solid #dde3f0;font-size:14px;">
+                      ${{ "%.2f"|format(plan.portfolio_snapshot.get('equity', 0)|float) }}
+                    </td>
+                    <td style="border:1px solid #dde3f0;font-size:14px;">
+                      ${{ "%.2f"|format(plan.portfolio_snapshot.get('cash', 0)|float) }}
+                    </td>
+                    <td style="border:1px solid #dde3f0;font-size:14px;">
+                      ${{ "%.2f"|format(plan.portfolio_snapshot.get('buying_power', 0)|float) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Trades Table -->
+              <h2 style="color:#1a1a2e;font-size:16px;border-bottom:2px solid #e0e4f0;padding-bottom:6px;">
+                Proposed Trades
+                <span style="font-weight:normal;font-size:13px;color:#777;">
+                  (Total Notional: ${{ "%.2f"|format(plan.total_notional) }})
+                </span>
+              </h2>
+              {% if plan.trades %}
+              <table width="100%" cellpadding="8" cellspacing="0" border="0"
+                     style="border-collapse:collapse;margin-bottom:24px;">
+                <thead>
+                  <tr style="background-color:#f0f4ff;">
+                    <th style="border:1px solid #dde3f0;text-align:left;font-size:13px;color:#555;">Symbol</th>
+                    <th style="border:1px solid #dde3f0;text-align:left;font-size:13px;color:#555;">Side</th>
+                    <th style="border:1px solid #dde3f0;text-align:left;font-size:13px;color:#555;">Notional</th>
+                    <th style="border:1px solid #dde3f0;text-align:left;font-size:13px;color:#555;">Rationale</th>
+                    <th style="border:1px solid #dde3f0;text-align:left;font-size:13px;color:#555;">Risk</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for trade in plan.trades %}
+                  <tr style="background-color:{% if loop.index is odd %}#ffffff{% else %}#fafbff{% endif %};">
+                    <td style="border:1px solid #dde3f0;font-weight:bold;font-size:14px;">{{ trade.symbol }}</td>
+                    <td style="border:1px solid #dde3f0;font-size:14px;">
+                      <span style="color:{% if trade.side == 'buy' %}#2e7d32{% else %}#c62828{% endif %};font-weight:bold;">
+                        {{ trade.side | upper }}
+                      </span>
+                    </td>
+                    <td style="border:1px solid #dde3f0;font-size:14px;">${{ "%.2f"|format(trade.notional) }}</td>
+                    <td style="border:1px solid #dde3f0;font-size:13px;color:#555;">{{ trade.rationale }}</td>
+                    <td style="border:1px solid #dde3f0;font-size:13px;">
+                      <span style="background-color:{% if trade.risk_level == 'low' %}#e8f5e9{% elif trade.risk_level == 'medium' %}#fff8e1{% else %}#ffebee{% endif %};
+                                   color:{% if trade.risk_level == 'low' %}#2e7d32{% elif trade.risk_level == 'medium' %}#f57f17{% else %}#c62828{% endif %};
+                                   padding:2px 8px;border-radius:12px;font-weight:bold;font-size:12px;">
+                        {{ trade.risk_level | upper }}
+                      </span>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <p style="color:#777;font-style:italic;">No trades in this plan.</p>
+              {% endif %}
+
+              <!-- Research Agreement -->
+              <h2 style="color:#1a1a2e;font-size:16px;border-bottom:2px solid #e0e4f0;padding-bottom:6px;">
+                Research Agreement
+              </h2>
+              <p style="font-size:14px;margin-bottom:8px;">
+                <strong>Strategy Agreement Score:</strong>
+                <span style="font-size:18px;font-weight:bold;color:{% if plan.strategy_agreement_score >= 0.7 %}#2e7d32{% elif plan.strategy_agreement_score >= 0.4 %}#f57f17{% else %}#c62828{% endif %};">
+                  {{ "%.0f"|format(plan.strategy_agreement_score * 100) }}%
+                </span>
+              </p>
+              {% if plan.key_disagreements %}
+              <p style="font-size:13px;color:#555;margin-top:4px;"><strong>Key Disagreements:</strong></p>
+              <ul style="font-size:13px;color:#555;margin-top:4px;padding-left:20px;">
+                {% for d in plan.key_disagreements %}
+                <li style="margin-bottom:4px;">{{ d }}</li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <p style="font-size:13px;color:#2e7d32;"><em>No significant disagreements between agents.</em></p>
+              {% endif %}
+
+              <!-- Agent Reasoning -->
+              <h2 style="color:#1a1a2e;font-size:16px;border-bottom:2px solid #e0e4f0;padding-bottom:6px;margin-top:24px;">
+                Agent Reasoning
+              </h2>
+              <p style="font-size:13px;color:#444;background-color:#f8f9fc;border-left:4px solid #1a1a2e;padding:12px 16px;border-radius:0 4px 4px 0;line-height:1.6;">
+                {{ plan.agent_reasoning }}
+              </p>
+
+              <p style="font-size:13px;color:#555;margin-top:16px;">
+                <strong>Risk Summary:</strong> {{ plan.risk_summary }}
+              </p>
+
+              <!-- CTA -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:32px;">
+                <tr>
+                  <td style="background-color:#f0f4ff;border-radius:8px;padding:20px;text-align:center;">
+                    <p style="margin:0 0 12px 0;font-size:15px;color:#1a1a2e;">
+                      <strong>Action Required:</strong> Review and decide on this trade plan.
+                    </p>
+                    <p style="margin:0;font-size:16px;font-weight:bold;">
+                      Open myAlpaca app at
+                      <a href="http://localhost:5173/approvals"
+                         style="color:#1565c0;text-decoration:underline;">
+                        http://localhost:5173/approvals
+                      </a>
+                      to <strong>APPROVE</strong> or <strong>REJECT</strong>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f0f4ff;padding:16px 32px;border-top:1px solid #dde3f0;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#999;">
+                Alpaca Agent Trader &middot; Automated Trading System &middot; Do not reply to this email
+              </p>
+              <p style="margin:4px 0 0 0;font-size:11px;color:#bbb;">
+                Plan expires at: {{ plan.expires_at }}
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
   </table>
-  {% else %}
-  <p><em>No orders in this plan.</em></p>
-  {% endif %}
 
-  <div class="cta">
-    <p>Visit the approvals page to make your decision:</p>
-    <!-- TODO: replace # with real approval URL from config -->
-    <a class="approve" href="{{ approval_url }}?decision=APPROVED">✅ Approve</a>
-    <a class="reject"  href="{{ approval_url }}?decision=REJECTED">❌ Reject</a>
-  </div>
-
-  <footer>
-    <p>Alpaca Agent Trader · automated trading system · do not reply to this email</p>
-  </footer>
 </body>
 </html>

@@ -2,62 +2,70 @@
 agent-c/myalpaca_client.py
 --------------------------
 HTTP client for the myAlpaca Node.js service (Alpaca brokerage connector).
-
-TODO: Implement order submission methods:
-      - submit_order(order: dict) → dict
-      - get_positions() → list[dict]
-      - get_account() → dict
 """
 
 import logging
 
 import httpx
 
-from config import config
-
 logger = logging.getLogger(__name__)
 
 
 class MyAlpacaClient:
-    """Thin async-compatible HTTP wrapper around the myAlpaca REST API."""
+    """Thin HTTP wrapper around the myAlpaca REST API."""
 
-    def __init__(self, base_url: str | None = None) -> None:
-        self.base_url = (base_url or config.MYALPACA_BASE_URL).rstrip("/")
+    def __init__(self, base_url: str = "http://myalpaca:3001") -> None:
+        self.base_url = base_url.rstrip("/")
 
-    def submit_order(self, order: dict) -> dict:
+    def health_check(self) -> bool:
+        """GET /health — returns True if the service is up."""
+        try:
+            response = httpx.get(f"{self.base_url}/health", timeout=10)
+            return response.status_code == 200
+        except httpx.RequestError as exc:
+            logger.error("myAlpaca health_check failed: %s", exc)
+            return False
+
+    def get_account(self) -> dict:
+        """GET /account — returns account information dict."""
+        response = httpx.get(f"{self.base_url}/account", timeout=15)
+        response.raise_for_status()
+        return response.json()
+
+    def get_positions(self) -> list:
+        """GET /positions — returns list of open positions."""
+        response = httpx.get(f"{self.base_url}/positions", timeout=15)
+        response.raise_for_status()
+        return response.json()
+
+    def get_orders(self) -> list:
+        """GET /orders — returns list of open/recent orders."""
+        response = httpx.get(f"{self.base_url}/orders", timeout=15)
+        response.raise_for_status()
+        return response.json()
+
+    def execute_trade(self, symbol: str, side: str, notional: float) -> dict:
         """
-        Submit a single order to the myAlpaca service.
-
-        TODO: Implement POST /orders with full error handling and logging.
+        POST /orders — submit a notional trade order.
 
         Args:
-            order: Order payload dict matching myAlpaca schema.
+            symbol:   Ticker symbol, e.g. 'AAPL'
+            side:     'buy' or 'sell'
+            notional: Dollar amount to trade
 
         Returns:
             Response dict from myAlpaca.
         """
-        # TODO: implement real HTTP call
-        logger.info("submit_order called (stub): %s", order)
-        raise NotImplementedError("submit_order not yet implemented")
-
-    def get_positions(self) -> list[dict]:
-        """
-        Retrieve current open positions.
-
-        TODO: Implement GET /positions.
-        """
-        # TODO: implement real HTTP call
-        raise NotImplementedError("get_positions not yet implemented")
-
-    def get_account(self) -> dict:
-        """
-        Retrieve account information.
-
-        TODO: Implement GET /account.
-        """
-        # TODO: implement real HTTP call
-        raise NotImplementedError("get_account not yet implemented")
-
-
-# Module-level singleton
-myalpaca_client = MyAlpacaClient()
+        payload = {
+            "symbol": symbol,
+            "side": side,
+            "notional": notional,
+            "type": "market",
+            "time_in_force": "day",
+        }
+        logger.info("Submitting trade: %s %s $%.2f", side, symbol, notional)
+        response = httpx.post(f"{self.base_url}/orders", json=payload, timeout=30)
+        response.raise_for_status()
+        result = response.json()
+        logger.info("Trade submitted: %s → %s", symbol, result)
+        return result

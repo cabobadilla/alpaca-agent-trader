@@ -1,119 +1,125 @@
 """
 agent-c/agent.py
 ----------------
-Core execution logic for agent-c.
-
-Daily workflow (Mon-Fri 9am EST):
-  1. Read strategy files from shared volume (wait up to 2h on Mondays)
-  2. Call Claude Sonnet to synthesise a trade plan from both strategies
-  3. POST trade plan to approval-bridge
-  4. Poll for approval (up to APPROVAL_TIMEOUT_MINUTES)
-  5. Execute approved plan via myAlpaca; abort if rejected/expired
-
-TODO: Implement full workflow in run_execution().
+Core trade plan generation logic using Anthropic Claude.
 """
 
 import json
 import logging
-import time
+import os
+import re
 from datetime import datetime, timezone
 
 import anthropic
 
-from approval_client import ApprovalStatus, approval_client
-from config import config
-from executor import execute_plan
-from prompts import SYSTEM_PROMPT, TRADE_PLAN_PROMPT_TEMPLATE
-from storage import get_current_week_label, read_latest_strategies, write_trade_plan
+from prompts import EXECUTION_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
-MONDAY_STRATEGY_WAIT_SECONDS = 2 * 60 * 60   # 2 hours
-MONDAY_STRATEGY_POLL_SECONDS = 5 * 60        # check every 5 min
+REQUIRED_KEYS = {
+    "plan_id",
+    "date",
+    "summary",
+    "trades",
+    "portfolio_snapshot",
+    "total_notional",
+    "risk_summary",
+    "agent_reasoning",
+    "strategy_agreement_score",
+    "key_disagreements",
+}
 
 
-def _is_monday() -> bool:
-    return datetime.now(tz=timezone.utc).weekday() == 0
-
-
-def _wait_for_monday_strategies() -> dict[str, str]:
+def build_trade_plan(
+    claude_strategy: str,
+    gpt_strategy: str,
+    account: dict,
+    positions: list,
+    orders: list,
+) -> dict | None:
     """
-    On Mondays, wait up to 2h for agent-a/b to finish writing strategy files.
+    Call Claude claude-sonnet-4-6 to synthesise a trade plan from both strategy docs
+    and the current portfolio state.
 
-    TODO: Improve with filesystem event watching (watchdog) instead of polling.
+    Args:
+        claude_strategy: Markdown content from agent-a's strategy file.
+        gpt_strategy:    Markdown content from agent-b's strategy file.
+        account:         Account dict (equity, cash, buying_power, ...).
+        positions:       List of current open positions.
+        orders:          List of current open orders.
+
+    Returns:
+        Parsed plan dict, or None on failure.
     """
-    waited = 0
-    while waited < MONDAY_STRATEGY_WAIT_SECONDS:
-        strategies = read_latest_strategies()
-        if strategies:
-            return strategies
-        logger.info("Monday: strategies not ready yet, waiting 5 min…")
-        time.sleep(MONDAY_STRATEGY_POLL_SECONDS)
-        waited += MONDAY_STRATEGY_POLL_SECONDS
+    today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
 
-    logger.error("Monday: strategy wait timeout — aborting execution")
-    return {}
+    user_message = f"""Today's date: {today}
 
+=== PORTFOLIO STATE ===
+Account:
+{json.dumps(account, indent=2)}
 
-def run_execution() -> None:
-    """
-    Entry point for agent-c's daily execution task.
+Open Positions:
+{json.dumps(positions, indent=2)}
 
-    TODO: Replace stub trade plan generation with real Claude Sonnet call.
-    """
-    logger.info("agent-c: starting daily execution run")
+Open Orders:
+{json.dumps(orders, indent=2)}
 
-    if _is_monday():
-        strategies = _wait_for_monday_strategies()
-    else:
-        strategies = read_latest_strategies()
+=== CLAUDE STRATEGY RESEARCH ===
+{claude_strategy}
 
-    if not strategies:
-        logger.error("No strategies available — aborting")
-        return
+=== GPT STRATEGY RESEARCH ===
+{gpt_strategy}
 
-    now = datetime.now(tz=timezone.utc)
-    year, week, _ = now.isocalendar()
+Based on the above portfolio state and both research documents, produce a trade plan JSON as specified in your system instructions.
+"""
 
-    strategies_summary = "\n\n".join(
-        f"## {key.upper()} Strategy\n{content[:500]}…"
-        for key, content in strategies.items()
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        logger.error("ANTHROPIC_API_KEY is not set")
+        return None
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    try:
+        logger.info("Calling Claude claude-sonnet-4-6 to build trade plan…")
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=4096,
+            temperature=0.1,
+            system=EXECUTION_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIError as exc:
+        logger.error("Anthropic API error: %s", exc)
+        return None
+    except Exception as exc:
+        logger.error("Unexpected error calling Anthropic API: %s", exc)
+        return None
+
+    raw_text = message.content[0].text.strip()
+
+    # Strip markdown code fences if present
+    raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
+    raw_text = re.sub(r"\s*```$", "", raw_text)
+    raw_text = raw_text.strip()
+
+    try:
+        plan = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        logger.error("Failed to parse JSON from Claude response: %s", exc)
+        logger.debug("Raw response: %s", raw_text[:500])
+        return None
+
+    # Validate required keys
+    missing = REQUIRED_KEYS - set(plan.keys())
+    if missing:
+        logger.error("Trade plan missing required keys: %s", missing)
+        return None
+
+    logger.info(
+        "Trade plan built: %d trades, agreement=%.2f",
+        len(plan.get("trades", [])),
+        plan.get("strategy_agreement_score", 0.0),
     )
-
-    prompt = TRADE_PLAN_PROMPT_TEMPLATE.format(
-        date=now.strftime("%Y-%m-%d"),
-        week=f"{year}-W{week:02d}",
-        strategies_summary=strategies_summary,
-    )
-
-    # TODO: Replace stub with real Claude Sonnet call
-    # client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-    # message = client.messages.create(
-    #     model="claude-sonnet-4-5",
-    #     max_tokens=2048,
-    #     system=SYSTEM_PROMPT,
-    #     messages=[{"role": "user", "content": prompt}],
-    # )
-    # raw_json = message.content[0].text
-    # plan = json.loads(raw_json)
-
-    plan: dict = {
-        "week": f"{year}-W{week:02d}",
-        "created_at": now.isoformat(),
-        "orders": [],
-        "rationale": "TODO: generated by Claude Sonnet",
-    }
-
-    write_trade_plan(plan)
-    plan_id = plan["id"]
-
-    # TODO: submit to approval-bridge and poll
-    # approval_client.submit_plan(plan)
-    # status = approval_client.wait_for_approval(plan_id)
-
-    # if status == ApprovalStatus.APPROVED:
-    #     execute_plan(plan_id)
-    # else:
-    #     logger.warning("Plan %s not approved (status=%s) — aborting", plan_id, status)
-
-    logger.info("agent-c: execution run complete (stub — no orders submitted)")
+    return plan

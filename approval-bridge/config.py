@@ -11,9 +11,9 @@ load_dotenv()
 
 
 class Config:
-    RESEND_API_KEY: str = os.environ["RESEND_API_KEY"]
-    RESEND_FROM_EMAIL: str = os.environ["RESEND_FROM_EMAIL"]
-    RESEND_TO_EMAIL: str = os.environ["RESEND_TO_EMAIL"]
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    RESEND_FROM_EMAIL: str = os.getenv("RESEND_FROM_EMAIL", "")
+    RESEND_TO_EMAIL: str = os.getenv("RESEND_TO_EMAIL", "")
     TRADEPLANS_DIR: str = os.getenv("TRADEPLANS_DIR", "/data/tradeplans")
     APPROVALS_DIR: str = os.getenv("APPROVALS_DIR", "/data/approvals")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

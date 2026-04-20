@@ -2,14 +2,14 @@
 approval-bridge/routers/notification.py
 -----------------------------------------
 FastAPI router for outbound notification endpoints.
-
-TODO: Implement:
-  POST /notify — trigger email notification for a given plan_id
+Prefix: /notification
 """
 
 import logging
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
+from pydantic import BaseModel
 
 from services.email_service import email_service
 
@@ -18,19 +18,36 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("", status_code=202)
-async def send_notification(payload: dict) -> dict:
+class NotificationRequest(BaseModel):
+    plan_id: str
+    type: str
+    email_subject: str
+    email_html: str
+
+
+class NotificationResponse(BaseModel):
+    email_sent: bool
+    errors: list[str]
+
+
+@router.post("/send", response_model=NotificationResponse)
+async def send_notification(payload: NotificationRequest) -> NotificationResponse:
     """
-    Trigger an outbound approval email via Resend for a trade plan.
-
-    Expected payload: {"plan_id": "<uuid>"}
-
-    TODO: Validate payload, load plan details, call email_service.send_approval_email().
+    Trigger an outbound alert email.
+    Accepts {plan_id, type, email_subject, email_html} and sends via EmailService.send_alert().
     """
-    plan_id = payload.get("plan_id")
-    if not plan_id:
-        raise HTTPException(status_code=422, detail="plan_id is required")
+    errors: list[str] = []
+    sent = False
 
-    # TODO: implement real email dispatch
-    logger.info("send_notification called (stub): plan_id=%s", plan_id)
-    raise HTTPException(status_code=501, detail="Not implemented")
+    try:
+        sent = email_service.send_alert(
+            subject=payload.email_subject,
+            message=payload.email_html,
+        )
+        if not sent:
+            errors.append("Email delivery failed — check RESEND_API_KEY and email config.")
+    except Exception as exc:
+        errors.append(str(exc))
+        logger.error("Notification send error for plan %s: %s", payload.plan_id, exc)
+
+    return NotificationResponse(email_sent=sent, errors=errors)
