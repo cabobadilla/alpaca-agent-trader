@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trade Plan Approval — Alpaca Agent Trader</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 640px; margin: 40px auto; color: #333; }
+    h1   { color: #1a1a2e; }
+    .plan-id  { font-family: monospace; background: #f4f4f4; padding: 4px 8px; border-radius: 4px; }
+    .orders   { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    .orders th, .orders td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+    .orders th  { background: #f0f0f0; }
+    .cta        { margin-top: 24px; }
+    .cta a      { display: inline-block; padding: 12px 24px; border-radius: 6px;
+                  text-decoration: none; font-weight: bold; color: #fff; }
+    .approve    { background: #2e7d32; }
+    .reject     { background: #c62828; margin-left: 12px; }
+    footer      { margin-top: 40px; font-size: 0.8em; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>📈 Trade Plan Ready for Approval</h1>
+
+  <p>A new trade plan has been generated and requires your review.</p>
+
+  <p><strong>Plan ID:</strong> <span class="plan-id">{{ plan_id }}</span></p>
+  <p><strong>Week:</strong> {{ week }}</p>
+  <p><strong>Generated:</strong> {{ created_at }}</p>
+
+  {% if rationale %}
+  <h2>Rationale</h2>
+  <p>{{ rationale }}</p>
+  {% endif %}
+
+  <h2>Orders</h2>
+  {% if orders %}
+  <table class="orders">
+    <thead>
+      <tr>
+        <th>Symbol</th>
+        <th>Side</th>
+        <th>Qty</th>
+        <th>Type</th>
+        <th>Limit Price</th>
+        <th>TIF</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for order in orders %}
+      <tr>
+        <td>{{ order.symbol }}</td>
+        <td>{{ order.side }}</td>
+        <td>{{ order.qty }}</td>
+        <td>{{ order.order_type }}</td>
+        <td>{{ order.limit_price if order.limit_price else "—" }}</td>
+        <td>{{ order.time_in_force }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p><em>No orders in this plan.</em></p>
+  {% endif %}
+
+  <div class="cta">
+    <p>Visit the approvals page to make your decision:</p>
+    <!-- TODO: replace # with real approval URL from config -->
+    <a class="approve" href="{{ approval_url }}?decision=APPROVED">✅ Approve</a>
+    <a class="reject"  href="{{ approval_url }}?decision=REJECTED">❌ Reject</a>
+  </div>
+
+  <footer>
+    <p>Alpaca Agent Trader · automated trading system · do not reply to this email</p>
+  </footer>
+</body>
+</html>
