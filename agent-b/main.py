@@ -20,7 +20,8 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from config import config
-from agent import run_research_with_retry
+from agent import run_research_with_retry  # noqa: F401 — kept for direct import compatibility
+from server import start as _start_flask, trigger_run as _scheduled_run
 
 logging.basicConfig(
     level=config.LOG_LEVEL,
@@ -75,7 +76,7 @@ def main() -> None:
     trigger = _build_trigger()
 
     job = scheduler.add_job(
-        run_research_with_retry,
+        _scheduled_run,
         trigger=trigger,
         id="agent_b_research",
         name="Agent B Weekly Research",
@@ -90,6 +91,7 @@ def main() -> None:
     )
 
     _start_heartbeat()
+    _start_flask(port=5002)
 
     try:
         scheduler.start()
