@@ -22,6 +22,7 @@ from approval_client import ApprovalBridgeClient
 from executor import execute_plan
 from myalpaca_client import MyAlpacaClient
 from storage import read_latest_strategy, strategies_ready_for_today, write_tradeplan
+from server import start as _start_flask
 
 logging.basicConfig(
     level=config.LOG_LEVEL,
@@ -232,6 +233,7 @@ def main() -> None:
 
     scheduler.start()
     logger.info("Scheduler started — waiting for next trigger")
+    _start_flask(port=5003)
 
     try:
         while True:
