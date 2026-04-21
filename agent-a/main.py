@@ -21,7 +21,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from config import config
 from agent import run_research_with_retry
-from server import start as _start_flask
+from server import start as _start_flask, trigger_run as _scheduled_run
 
 logging.basicConfig(
     level=config.LOG_LEVEL,
@@ -76,7 +76,7 @@ def main() -> None:
     trigger = _build_trigger()
 
     job = scheduler.add_job(
-        run_research_with_retry,
+        _scheduled_run,
         trigger=trigger,
         id="agent_a_research",
         name="Agent A Weekly Research",

@@ -38,10 +38,6 @@ class _SSEHandler(logging.Handler):
             _log_cond.notify_all()
 
 
-_handler = _SSEHandler()
-_handler.setFormatter(logging.Formatter("[%(asctime)s] %(message)s", datefmt="%H:%M:%S"))
-
-
 def _get_last_run() -> str | None:
     pattern = os.path.join(_STRATEGIES_DIR, f"strategy_{_STRATEGY_PREFIX}_*.md")
     files = glob.glob(pattern)
@@ -60,27 +56,41 @@ def status():
 
 @app.route("/trigger", methods=["POST"])
 def trigger():
-    global _running, _log_buf
+    global _running
     with _lock:
         if _running:
             return jsonify({"status": "already_running"}), 409
         _running = True
-        _log_buf = []
+        _log_buf.clear()
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({"status": "started"}), 200
 
 
+def trigger_run() -> None:
+    """Entry point for scheduler — same guard as POST /trigger."""
+    global _running
+    with _lock:
+        if _running:
+            logging.warning("Scheduled run skipped: agent already running")
+            return
+        _running = True
+        _log_buf.clear()
+    threading.Thread(target=_run, daemon=True).start()
+
+
 def _run() -> None:
     global _running
+    handler = _SSEHandler()
+    handler.setFormatter(logging.Formatter("[%(asctime)s] %(message)s", datefmt="%H:%M:%S"))
     root = logging.getLogger()
-    root.addHandler(_handler)
+    root.addHandler(handler)
     try:
         from agent import run_research_with_retry
         run_research_with_retry()
     except Exception as exc:
         logging.error("Agent run failed: %s", exc)
     finally:
-        root.removeHandler(_handler)
+        root.removeHandler(handler)
         with _log_cond:
             _log_buf.append("__done__")
             _running = False
