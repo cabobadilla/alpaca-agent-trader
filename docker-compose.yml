@@ -141,6 +141,17 @@ services:
       - ALPACA_BASE_URL=${ALPACA_BASE_URL:-https://paper-api.alpaca.markets}
       - APPROVAL_BRIDGE_URL=${APPROVAL_BRIDGE_URL:-http://approval-bridge:8080}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+      - AGENT_A_CRON=${AGENT_A_CRON:-0 6 * * 1}
+      - AGENT_B_CRON=${AGENT_B_CRON:-0 6 * * 1}
+      - AGENT_C_CRON=${AGENT_C_CRON:-0 9 * * 1-5}
+      - STRATEGIES_DIR=${STRATEGIES_DIR:-/data/strategies}
+      - TRADEPLANS_DIR=${TRADEPLANS_DIR:-/data/tradeplans}
+      - APPROVALS_DIR=${APPROVALS_DIR:-/data/approvals}
+    volumes:
+      - strategies-data:/data/strategies:ro
+      - tradeplan-data:/data/tradeplans:ro
+      - approval-data:/data/approvals:ro
     ports:
       - "3001:3001"
     networks:
