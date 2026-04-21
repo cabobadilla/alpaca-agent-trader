@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface AgentStatus {
   running: boolean;
@@ -38,40 +38,27 @@ interface AgentCardProps {
 function AgentCard({ agentId, name, model, showLogs = false }: AgentCardProps) {
   const [status, setStatus] = useState<AgentStatus | null>(null);
   const [running, setRunning] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<{ id: number; text: string }[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [triggered, setTriggered] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const esRef = useRef<EventSource | null>(null);
+  const runningRef = useRef(false);
+  const logCounterRef = useRef(0);
+  const triggeredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    fetchStatus();
-    const id = setInterval(fetchStatus, 30_000);
-    return () => {
-      clearInterval(id);
-      esRef.current?.close();
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
-
-  async function fetchStatus() {
-    try {
-      const r = await fetch(`/api/agents/${agentId}/status`);
-      const data: AgentStatus = await r.json();
-      setStatus(data);
-      if (data.running && !running) startStreaming();
-    } catch {
-      // backend unreachable
-    }
-  }
-
+  // Fix 6: startStreaming declared before fetchStatus so fetchStatus can reference it
   function startStreaming() {
+    // Fix 2: concurrency guard — bail if already running, close any orphan stream
+    if (runningRef.current) return;
+    esRef.current?.close();
+
+    // Fix 3: clear any existing elapsed-timer before starting a new one
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    runningRef.current = true;  // Fix 1: mirror running state in ref
     setRunning(true);
     setLogs([]);
     startTimeRef.current = Date.now();
@@ -86,33 +73,73 @@ function AgentCard({ agentId, name, model, showLogs = false }: AgentCardProps) {
       if (line === '__done__') {
         es.close();
         esRef.current = null;
+        runningRef.current = false;  // Fix 1
         setRunning(false);
         if (timerRef.current) clearInterval(timerRef.current);
         fetchStatus();
         return;
       }
-      setLogs(prev => [...prev, line]);
+      // Fix 7: use stable id counter instead of array index
+      setLogs(prev => [...prev, { id: logCounterRef.current++, text: line }]);
     };
+    // Fix 5: only treat onerror as terminal when the browser has given up (CLOSED state)
     es.onerror = () => {
-      es.close();
-      esRef.current = null;
-      setRunning(false);
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (es.readyState === EventSource.CLOSED) {
+        esRef.current = null;
+        runningRef.current = false;  // Fix 1
+        setRunning(false);
+        if (timerRef.current) clearInterval(timerRef.current);
+      }
     };
   }
 
+  // Fix 6: wrap fetchStatus in useCallback with [agentId] dep for stability
+  const fetchStatus = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/agents/${agentId}/status`);
+      if (!r.ok) return;  // Fix 4: ignore HTTP error responses
+      const data: AgentStatus = await r.json();
+      setStatus(data);
+      // Fix 1: use runningRef to avoid stale closure on `running`
+      if (data.running && !runningRef.current) startStreaming();
+    } catch {
+      // backend unreachable
+    }
+  }, [agentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetchStatus();
+    const id = setInterval(fetchStatus, 30_000);
+    return () => {
+      clearInterval(id);
+      esRef.current?.close();
+      if (timerRef.current) clearInterval(timerRef.current);
+      // Fix 8: clean up triggered reset timer on unmount
+      if (triggeredTimerRef.current) clearTimeout(triggeredTimerRef.current);
+    };
+  }, [fetchStatus]);
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
   async function handleRunNow() {
     if (running) return;
+    // Fix 4: check HTTP status before proceeding
+    let r: Response;
     try {
-      await fetch(`/api/agents/${agentId}/trigger`, { method: 'POST' });
+      r = await fetch(`/api/agents/${agentId}/trigger`, { method: 'POST' });
     } catch {
       return;
     }
+    if (!r.ok) return;
     if (showLogs) {
       startStreaming();
     } else {
       setTriggered(true);
-      setTimeout(() => setTriggered(false), 6_000);
+      // Fix 8: clear any pending triggered timer before setting a new one
+      if (triggeredTimerRef.current) clearTimeout(triggeredTimerRef.current);
+      triggeredTimerRef.current = setTimeout(() => setTriggered(false), 6_000);
       fetchStatus();
     }
   }
@@ -175,8 +202,9 @@ function AgentCard({ agentId, name, model, showLogs = false }: AgentCardProps) {
             {running ? `Running — ${fmtElapsed(elapsed)}` : 'Completed'}
           </div>
           <div className="bg-[#010409] border border-[#30363D] rounded p-3 h-52 overflow-y-auto font-mono text-xs text-green-400 space-y-px">
-            {logs.map((line, i) => (
-              <div key={i}>{line}</div>
+            {/* Fix 7: stable keys from id counter */}
+            {logs.map(({ id, text }) => (
+              <div key={id}>{text}</div>
             ))}
             <div ref={logsEndRef} />
           </div>
