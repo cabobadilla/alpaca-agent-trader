@@ -9,6 +9,8 @@ import wheelRouter from './routes/wheel';
 import optionsRouter from './routes/options';
 import intelRouter from './routes/intel';
 import approvalsRouter from './routes/approvals';
+import agentsRouter from './routes/agents';
+import historyRouter from './routes/history';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,8 +28,10 @@ app.use('/api/wheel', wheelRouter);
 app.use('/api/options', optionsRouter);
 app.use('/api/intel',   intelRouter);
 app.use('/api/approvals', approvalsRouter);
+app.use('/api/agents', agentsRouter);
+app.use('/api/history', historyRouter);
 
 app.listen(PORT, () => {
   console.log(`Alpaca Trader API running on http://localhost:${PORT}`);
-  console.log('Routes: /api/health, /api/account, /api/trade, /api/wheel, /api/options, /api/intel');
+  console.log('Routes: /api/health, /api/account, /api/trade, /api/wheel, /api/options, /api/intel, /api/agents, /api/history');
 });
