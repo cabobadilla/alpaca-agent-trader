@@ -30,8 +30,10 @@ build/
 *.log
 logs/
 
-# Node / JS (myalpaca reference)
+# Node / JS (myalpaca)
 node_modules/
+myalpaca/backend/dist/
+myalpaca/frontend/dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

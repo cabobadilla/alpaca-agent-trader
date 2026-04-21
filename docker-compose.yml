@@ -78,7 +78,7 @@ services:
       - STRATEGIES_DIR=${STRATEGIES_DIR:-/data/strategies}
       - TRADEPLANS_DIR=${TRADEPLANS_DIR:-/data/tradeplans}
       - APPROVALS_DIR=${APPROVALS_DIR:-/data/approvals}
-      - MYALPACA_BASE_URL=${MYALPACA_BASE_URL:-http://myalpaca:3001}
+      - MYALPACA_BASE_URL=${MYALPACA_BASE_URL:-http://myalpaca-backend:3001}
       - APPROVAL_BRIDGE_URL=${APPROVAL_BRIDGE_URL:-http://approval-bridge:8080}
       - APPROVAL_TIMEOUT_MINUTES=${APPROVAL_TIMEOUT_MINUTES:-120}
     volumes:
@@ -113,8 +113,7 @@ services:
     volumes:
       - tradeplan-data:/data/tradeplans
       - approval-data:/data/approvals
-    ports:
-      - "8080:8080"
+    # No host port — accessed internally via myalpaca-backend proxy
     networks:
       - alpaca-net
     healthcheck:
@@ -125,17 +124,45 @@ services:
       start_period: 10s
 
   # ----------------------------------------------------------
-  # myalpaca: External Node.js Alpaca connector (port 3001)
-  # Referenced only — assumed to run externally or is pre-built.
-  # To run locally, uncomment the block below and provide image.
+  # myalpaca-backend: Node.js Express API (port 3001)
+  # Alpaca connector + approval proxy
   # ----------------------------------------------------------
-  myalpaca:
-    image: myalpaca:latest          # pre-built image — not managed here
-    container_name: myalpaca
+  myalpaca-backend:
+    build:
+      context: ./myalpaca/backend
+      dockerfile: Dockerfile
+    container_name: myalpaca-backend
     restart: unless-stopped
+    env_file: .env
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - ALPACA_API_KEY=${ALPACA_API_KEY}
+      - ALPACA_SECRET_KEY=${ALPACA_SECRET_KEY}
+      - ALPACA_BASE_URL=${ALPACA_BASE_URL:-https://paper-api.alpaca.markets}
+      - APPROVAL_BRIDGE_URL=${APPROVAL_BRIDGE_URL:-http://approval-bridge:8080}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
     ports:
       - "3001:3001"
     networks:
       - alpaca-net
-    # Uncomment if you need to inject env vars for myalpaca:
-    # env_file: .env
+    depends_on:
+      approval-bridge:
+        condition: service_healthy
+
+  # ----------------------------------------------------------
+  # myalpaca-frontend: React/Vite dev server (port 5173)
+  # ----------------------------------------------------------
+  myalpaca-frontend:
+    build:
+      context: ./myalpaca/frontend
+      dockerfile: Dockerfile
+    container_name: myalpaca-frontend
+    restart: unless-stopped
+    environment:
+      - VITE_API_TARGET=http://myalpaca-backend:3001
+    ports:
+      - "5173:5173"
+    networks:
+      - alpaca-net
+    depends_on:
+      - myalpaca-backend

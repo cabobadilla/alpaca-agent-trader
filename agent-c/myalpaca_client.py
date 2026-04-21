@@ -18,35 +18,35 @@ class MyAlpacaClient:
         self.base_url = base_url.rstrip("/")
 
     def health_check(self) -> bool:
-        """GET /health — returns True if the service is up."""
+        """GET /api/health — returns True if the service is up."""
         try:
-            response = httpx.get(f"{self.base_url}/health", timeout=10)
+            response = httpx.get(f"{self.base_url}/api/health", timeout=10)
             return response.status_code == 200
         except httpx.RequestError as exc:
             logger.error("myAlpaca health_check failed: %s", exc)
             return False
 
     def get_account(self) -> dict:
-        """GET /account — returns account information dict."""
-        response = httpx.get(f"{self.base_url}/account", timeout=15)
+        """GET /api/account — returns account information dict."""
+        response = httpx.get(f"{self.base_url}/api/account", timeout=15)
         response.raise_for_status()
         return response.json()
 
     def get_positions(self) -> list:
-        """GET /positions — returns list of open positions."""
-        response = httpx.get(f"{self.base_url}/positions", timeout=15)
+        """GET /api/account/positions — returns list of open positions."""
+        response = httpx.get(f"{self.base_url}/api/account/positions", timeout=15)
         response.raise_for_status()
         return response.json()
 
     def get_orders(self) -> list:
-        """GET /orders — returns list of open/recent orders."""
-        response = httpx.get(f"{self.base_url}/orders", timeout=15)
+        """GET /api/account/orders — returns list of open/recent orders."""
+        response = httpx.get(f"{self.base_url}/api/account/orders", timeout=15)
         response.raise_for_status()
         return response.json()
 
     def execute_trade(self, symbol: str, side: str, notional: float) -> dict:
         """
-        POST /orders — submit a notional trade order.
+        POST /api/trade/execute — submit a notional trade order.
 
         Args:
             symbol:   Ticker symbol, e.g. 'AAPL'
@@ -60,11 +60,9 @@ class MyAlpacaClient:
             "symbol": symbol,
             "side": side,
             "notional": notional,
-            "type": "market",
-            "time_in_force": "day",
         }
         logger.info("Submitting trade: %s %s $%.2f", side, symbol, notional)
-        response = httpx.post(f"{self.base_url}/orders", json=payload, timeout=30)
+        response = httpx.post(f"{self.base_url}/api/trade/execute", json=payload, timeout=30)
         response.raise_for_status()
         result = response.json()
         logger.info("Trade submitted: %s → %s", symbol, result)
