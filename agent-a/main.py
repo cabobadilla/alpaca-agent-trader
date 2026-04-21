@@ -21,6 +21,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from config import config
 from agent import run_research_with_retry
+from server import start as _start_flask
 
 logging.basicConfig(
     level=config.LOG_LEVEL,
@@ -90,6 +91,7 @@ def main() -> None:
     )
 
     _start_heartbeat()
+    _start_flask(port=5001)
 
     try:
         scheduler.start()
