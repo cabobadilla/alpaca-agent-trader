@@ -73,8 +73,8 @@ function ExpandedRow({ entry }: { entry: HistoryEntry }) {
                 Key Disagreements
               </div>
               <ul className="space-y-1">
-                {entry.key_disagreements.map((d, i) => (
-                  <li key={i} className="text-sm text-yellow-400 font-mono">⚡ {d}</li>
+                {entry.key_disagreements.map((d) => (
+                  <li key={d} className="text-sm text-yellow-400 font-mono">⚡ {d}</li>
                 ))}
               </ul>
             </div>
@@ -95,8 +95,8 @@ function ExpandedRow({ entry }: { entry: HistoryEntry }) {
                 </tr>
               </thead>
               <tbody>
-                {entry.trades.map((t, i) => (
-                  <tr key={i} className="border-b border-[#21262D]">
+                {(entry.trades ?? []).map((t) => (
+                  <tr key={`${t.symbol}-${t.side}`} className="border-b border-[#21262D]">
                     <td className="py-1 pr-4 text-white">{t.symbol}</td>
                     <td className={`py-1 pr-4 ${t.side === 'buy' ? 'text-blue-400' : 'text-red-400'}`}>
                       {t.side.toUpperCase()}
@@ -132,17 +132,28 @@ export default function History() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/history')
-      .then(r => r.json())
-      .then(setHistory)
-      .catch(() => setHistory([]))
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(data => {
+        if (!Array.isArray(data)) throw new Error('Unexpected response');
+        setHistory(data as HistoryEntry[]);
+      })
+      .catch(() => setError('Failed to load history. Is the backend running?'))
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
     return <div className="text-[#8B949E] font-mono text-sm mt-8">Loading history…</div>;
+  }
+
+  if (error) {
+    return <div className="mt-8 text-red-400 font-mono text-sm">{error}</div>;
   }
 
   if (history.length === 0) {
@@ -179,19 +190,19 @@ export default function History() {
                     <AgreementPct score={entry.strategy_agreement_score} />
                   </td>
                   <td className="py-2 px-4 font-mono text-sm">
-                    {entry.trades.map((t, i) => (
-                      <span key={i}>
+                    {(entry.trades ?? []).map((t, i) => (
+                      <span key={`${t.symbol}-${t.side}-${i}`}>
                         <span className={t.side === 'buy' ? 'text-blue-400' : 'text-red-400'}>
                           {t.symbol}
                         </span>
-                        {i < entry.trades.length - 1 && (
+                        {i < (entry.trades ?? []).length - 1 && (
                           <span className="text-[#30363D]"> · </span>
                         )}
                       </span>
                     ))}
                   </td>
                   <td className="py-2 px-4 font-mono text-white text-right">
-                    ${entry.total_notional.toLocaleString()}
+                    {'$' + entry.total_notional.toLocaleString('en-US')}
                   </td>
                   <td className="py-2 px-4">
                     <span className={`text-xs px-2 py-0.5 rounded font-mono ${STATUS_STYLES[entry.approvalStatus] ?? ''}`}>
