@@ -75,20 +75,14 @@ def main() -> None:
     scheduler = BlockingScheduler(timezone=config.TZ)
     trigger = _build_trigger()
 
-    job = scheduler.add_job(
+    scheduler.add_job(
         _scheduled_run,
         trigger=trigger,
         id="agent_b_research",
         name="Agent B Weekly Research",
     )
 
-    # Log next fire time before blocking
-    next_run = job.next_run_time
-    logger.info(
-        "agent-b scheduled — next fire time: %s (cron: '%s')",
-        next_run,
-        config.AGENT_B_CRON,
-    )
+    logger.info("agent-b scheduled (cron: '%s')", config.AGENT_B_CRON)
 
     _start_heartbeat()
     _start_flask(port=5002)
