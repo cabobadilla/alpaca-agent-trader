@@ -2,11 +2,12 @@ import { Routes, Route, NavLink } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Trade from './pages/Trade';
 import Approvals from './pages/Approvals';
+import Agents from './pages/Agents';
+import History from './pages/History';
 
 function App() {
   return (
     <div className="min-h-screen bg-[#0D1117]">
-      {/* Top nav */}
       <nav className="border-b border-[#30363D] px-6 py-3 flex items-center gap-6">
         <span className="font-mono font-semibold text-white tracking-tight">
           Alpaca Trader
@@ -15,39 +16,34 @@ function App() {
           PAPER
         </span>
         <div className="flex gap-4 ml-4">
-          <NavLink
-            to="/"
-            className={({ isActive }) =>
-              `text-sm ${isActive ? 'text-white' : 'text-[#8B949E] hover:text-white'}`
-            }
-          >
-            Dashboard
-          </NavLink>
-          <NavLink
-            to="/trade"
-            className={({ isActive }) =>
-              `text-sm ${isActive ? 'text-white' : 'text-[#8B949E] hover:text-white'}`
-            }
-          >
-            Trade
-          </NavLink>
-          <NavLink
-            to="/approvals"
-            className={({ isActive }) =>
-              `text-sm ${isActive ? 'text-white' : 'text-[#8B949E] hover:text-white'}`
-            }
-          >
-            Approvals
-          </NavLink>
+          {[
+            { to: '/',        label: 'Dashboard' },
+            { to: '/trade',   label: 'Trade'     },
+            { to: '/approvals', label: 'Approvals' },
+            { to: '/agents',  label: 'Agents'    },
+            { to: '/history', label: 'History'   },
+          ].map(({ to, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) =>
+                `text-sm ${isActive ? 'text-white' : 'text-[#8B949E] hover:text-white'}`
+              }
+            >
+              {label}
+            </NavLink>
+          ))}
         </div>
       </nav>
 
-      {/* Page content */}
       <main className="px-6 py-6 max-w-6xl mx-auto">
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/trade" element={<Trade />} />
+          <Route path="/"          element={<Dashboard />} />
+          <Route path="/trade"     element={<Trade />} />
           <Route path="/approvals" element={<Approvals />} />
+          <Route path="/agents"    element={<Agents />} />
+          <Route path="/history"   element={<History />} />
         </Routes>
       </main>
     </div>
