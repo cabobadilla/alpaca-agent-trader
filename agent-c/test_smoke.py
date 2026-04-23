@@ -20,6 +20,7 @@ os.environ.setdefault("APPROVAL_BRIDGE_URL", "http://localhost:8080")
 os.environ.setdefault("AGENT_C_CRON", "0 9 * * 1-5")
 os.environ.setdefault("APPROVAL_TIMEOUT_MINUTES", "120")
 os.environ.setdefault("LOG_LEVEL", "INFO")
+os.environ["EVENTS_DIR"] = "/tmp/test_events_c"
 
 
 def test_config_loads():

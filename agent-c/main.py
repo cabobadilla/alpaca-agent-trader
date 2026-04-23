@@ -23,6 +23,7 @@ from executor import execute_plan
 from myalpaca_client import MyAlpacaClient
 from storage import read_latest_strategy, strategies_ready_for_today, write_tradeplan
 from server import start as _start_flask
+from event_logger import EventLogger
 
 logging.basicConfig(
     level=config.LOG_LEVEL,
@@ -30,6 +31,8 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
+
+_elog = EventLogger(agent="agent-c")
 
 HEARTBEAT_PATH = Path("/tmp/agent-c.heartbeat")
 STRATEGY_WAIT_MAX_MINUTES = 120
@@ -56,11 +59,13 @@ async def run_daily() -> None:
     bridge = ApprovalBridgeClient(base_url=config.APPROVAL_BRIDGE_URL)
 
     logger.info("agent-c: starting daily execution run")
+    _elog.phase("idle", message="Daily run started")
 
     # ── Step 1: health check ──────────────────────────────────────────────────
     if not alpaca.health_check():
         msg = "myAlpaca service is unreachable — aborting daily run"
         logger.error(msg)
+        _elog.error(msg)
         bridge.send_notification(
             plan_id="N/A",
             ntype="ALERT",
@@ -70,11 +75,13 @@ async def run_daily() -> None:
         return
 
     # ── Step 2: wait for strategies ───────────────────────────────────────────
+    _elog.phase("waiting_strategies", message="Polling for strategy files")
     waited_minutes = 0
     while not strategies_ready_for_today():
         if waited_minutes >= STRATEGY_WAIT_MAX_MINUTES:
             msg = f"Strategy files not ready after {STRATEGY_WAIT_MAX_MINUTES}min — aborting"
             logger.error(msg)
+            _elog.error(msg)
             bridge.send_notification(
                 plan_id="N/A",
                 ntype="ALERT",
@@ -92,6 +99,7 @@ async def run_daily() -> None:
         waited_minutes += STRATEGY_POLL_MINUTES
 
     # ── Step 3: fetch portfolio ───────────────────────────────────────────────
+    _elog.phase("building_plan", message="Fetching portfolio")
     try:
         account = alpaca.get_account()
         positions = alpaca.get_positions()
@@ -102,7 +110,9 @@ async def run_daily() -> None:
             account.get("cash"),
         )
     except Exception as exc:
-        logger.error("Failed to fetch portfolio: %s", exc)
+        msg = f"Failed to fetch portfolio: {exc}"
+        logger.error(msg)
+        _elog.error(msg, metadata={"exc": str(exc)})
         bridge.send_notification(
             plan_id="N/A",
             ntype="ALERT",
@@ -116,7 +126,9 @@ async def run_daily() -> None:
     gpt_strategy = read_latest_strategy("gpt")
 
     if not claude_strategy or not gpt_strategy:
-        logger.error("Could not read one or both strategy files — aborting")
+        msg = "Could not read one or both strategy files — aborting"
+        logger.error(msg)
+        _elog.error(msg)
         bridge.send_notification(
             plan_id="N/A",
             ntype="ALERT",
@@ -126,6 +138,7 @@ async def run_daily() -> None:
         return
 
     # ── Step 5: build trade plan ──────────────────────────────────────────────
+    _elog.phase("building_plan", message="Generating trade plan with Claude")
     plan = build_trade_plan(
         claude_strategy=claude_strategy,
         gpt_strategy=gpt_strategy,
@@ -134,7 +147,9 @@ async def run_daily() -> None:
         orders=orders,
     )
     if plan is None:
-        logger.error("build_trade_plan() returned None — aborting")
+        msg = "build_trade_plan() returned None — aborting"
+        logger.error(msg)
+        _elog.error(msg)
         bridge.send_notification(
             plan_id="N/A",
             ntype="ALERT",
@@ -153,8 +168,11 @@ async def run_daily() -> None:
     try:
         submission_result = bridge.submit_plan(plan)
         logger.info("Plan submitted: %s", submission_result)
+        _elog.event("plan_submitted", plan_id=plan_id, message="Trade plan submitted to approval bridge")
     except Exception as exc:
-        logger.error("Failed to submit plan to approval-bridge: %s", exc)
+        msg = f"Failed to submit plan to approval-bridge: {exc}"
+        logger.error(msg)
+        _elog.error(msg, plan_id=plan_id)
         bridge.send_notification(
             plan_id=plan_id,
             ntype="ALERT",
@@ -164,25 +182,43 @@ async def run_daily() -> None:
         return
 
     # ── Step 8: poll for decision ─────────────────────────────────────────────
+    _elog.phase(
+        "awaiting_approval",
+        plan_id=plan_id,
+        message=f"Waiting for human decision on plan {plan_id}",
+    )
     decision = bridge.poll_until_decided(
         plan_id=plan_id,
         timeout_minutes=config.APPROVAL_TIMEOUT_MINUTES,
         interval_seconds=120,
     )
     logger.info("Plan %s decision: %s", plan_id, decision)
+    _elog.event(
+        "plan_decision",
+        level="INFO" if decision == "APPROVED" else "WARN",
+        plan_id=plan_id,
+        message=f"Plan decision: {decision}",
+    )
 
     # ── Step 9/10: act on decision ────────────────────────────────────────────
     if decision == "APPROVED":
+        _elog.phase("executing", plan_id=plan_id, message="Executing approved trades")
         logger.info("Plan APPROVED — executing trades")
-        result = execute_plan(plan=plan, alpaca=alpaca, bridge=bridge)
+        result = execute_plan(plan=plan, alpaca=alpaca, bridge=bridge, elog=_elog)
         logger.info(
             "Execution complete: %d executed, %d failed",
             result["executed"],
             result["failed"],
         )
+        _elog.phase(
+            "complete",
+            plan_id=plan_id,
+            message=f"Execution complete: {result['executed']} executed, {result['failed']} failed",
+        )
     else:
         msg = f"Plan {plan_id} not executed — decision={decision}"
         logger.warning(msg)
+        _elog.phase("complete", plan_id=plan_id, message=msg)
         bridge.send_notification(
             plan_id=plan_id,
             ntype="ALERT",
@@ -234,6 +270,7 @@ def main() -> None:
     scheduler.start()
     logger.info("Scheduler started — waiting for next trigger")
     _start_flask(port=5003)
+    _elog.phase("idle", message="agent-c started, waiting for scheduled run")
 
     try:
         while True:
