@@ -23,6 +23,7 @@ from config import config
 from agent import run_research_with_retry
 from server import start as _start_flask, trigger_run as _scheduled_run
 from event_logger import EventLogger
+
 _elog = EventLogger(agent="agent-a")
 
 logging.basicConfig(

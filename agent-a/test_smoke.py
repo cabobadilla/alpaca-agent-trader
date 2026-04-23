@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 # Set env vars BEFORE importing any modules that read them at import time
 os.environ["ANTHROPIC_API_KEY"] = "test-anthropic-key"
 os.environ["STRATEGIES_DIR"] = "/tmp/test_strategies"
+os.environ["EVENTS_DIR"] = "/tmp/test_events_a"
 os.environ["AGENT_A_CRON"] = "0 6 * * 1"
 os.environ["LOG_LEVEL"] = "INFO"
 os.environ["APPROVAL_BRIDGE_URL"] = "http://approval-bridge:8080"

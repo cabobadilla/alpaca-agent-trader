@@ -5,7 +5,8 @@ Flask HTTP server for on-demand trigger and live log streaming.
 Runs in a daemon thread alongside BlockingScheduler.
 
 Endpoints:
-  GET  /status  — {"running": bool, "lastRun": ISO8601|null}
+  GET  /status  — {"running": bool, "lastRun": ISO8601|null, "phase": str|null,
+                   "plan_id": str|null, "phase_updated_at": ISO8601|null, "last_error": str|null}
   POST /trigger — 200 {"status":"started"} | 409 {"status":"already_running"}
   GET  /logs    — SSE stream; sends "__done__" on completion
 """
