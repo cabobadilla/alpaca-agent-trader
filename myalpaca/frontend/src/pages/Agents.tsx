@@ -72,8 +72,7 @@ function AgentCard({ agentId, name, model, showLogs = false }: AgentCardProps) {
   const logCounterRef = useRef(0);
   const triggeredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fix 6: startStreaming declared before fetchStatus so fetchStatus can reference it
-  function startStreaming() {
+  const startStreaming = useCallback(() => {
     // Fix 2: concurrency guard — bail if already running, close any orphan stream
     if (runningRef.current) return;
     esRef.current?.close();
@@ -114,9 +113,8 @@ function AgentCard({ agentId, name, model, showLogs = false }: AgentCardProps) {
         if (timerRef.current) clearInterval(timerRef.current);
       }
     };
-  }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fix 6: wrap fetchStatus in useCallback with [agentId] dep for stability
   const fetchStatus = useCallback(async () => {
     try {
       const r = await fetch(`/api/agents/${agentId}/status`);
@@ -128,7 +126,7 @@ function AgentCard({ agentId, name, model, showLogs = false }: AgentCardProps) {
     } catch {
       // backend unreachable
     }
-  }, [agentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [agentId, startStreaming]);
 
   useEffect(() => {
     fetchStatus();

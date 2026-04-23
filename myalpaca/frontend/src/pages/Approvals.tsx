@@ -39,7 +39,7 @@ function statusBadge(status: string) {
   const cls = map[status] ?? 'bg-[#21262D] text-[#8B949E] border-[#30363D]';
   return (
     <span className={`text-xs border px-2 py-0.5 rounded font-mono ${cls}`}>
-      {status.replace('_', ' ')}
+      {status.replace(/_/g, ' ')}
     </span>
   );
 }
@@ -74,7 +74,7 @@ export default function Approvals() {
 
   function fetchPlans() {
     fetch('/api/approvals/pending')
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((data) => {
         if (data.error) throw new Error(data.error);
         setPlans(data);
@@ -98,6 +98,7 @@ export default function Approvals() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan_id: planId, decision, reason: reasons[planId] ?? null }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       fetchPlans();
@@ -309,7 +310,12 @@ export default function Approvals() {
                   {(plan.status === 'REJECTED' || plan.status === 'EXPIRED') && (
                     <button
                       onClick={async () => {
-                        await fetch('/api/agents/c/trigger', { method: 'POST' });
+                        try {
+                          const r = await fetch('/api/agents/c/trigger', { method: 'POST' });
+                          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                        } catch (e: any) {
+                          setDecideError(err => ({ ...err, [plan.plan_id]: e.message }));
+                        }
                       }}
                       className="text-xs px-3 py-1.5 bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] text-[#8B949E] hover:text-white rounded font-mono transition-colors"
                     >

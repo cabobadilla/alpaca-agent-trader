@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 
 interface LogEvent {
   id: string;
@@ -42,7 +42,7 @@ export default function Logs() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
-  function fetchEvents() {
+  const fetchEvents = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams({ limit: '200' });
     if (agentFilter) params.set('agent', agentFilter);
@@ -52,9 +52,9 @@ export default function Logs() {
       .then((data: LogEvent[]) => { setEvents(data); setError(null); })
       .catch(() => setError('Failed to load events. Is the backend running?'))
       .finally(() => setLoading(false));
-  }
+  }, [agentFilter, levelFilter]);
 
-  useEffect(() => { fetchEvents(); }, [agentFilter, levelFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
   useEffect(() => {
     if (!live) { esRef.current?.close(); esRef.current = null; return; }
