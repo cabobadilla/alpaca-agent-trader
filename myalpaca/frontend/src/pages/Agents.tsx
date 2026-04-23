@@ -5,6 +5,29 @@ interface AgentStatus {
   lastRun: string | null;
   nextRun: string | null;
   strategyReady?: boolean;
+  phase?: string | null;
+  plan_id?: string | null;
+  phase_updated_at?: string | null;
+  last_error?: string | null;
+}
+
+const PHASE_LABELS: Record<string, string> = {
+  idle:                 'Idle',
+  waiting_strategies:   'Waiting for strategies',
+  building_plan:        'Building trade plan',
+  awaiting_approval:    'Waiting for your approval',
+  executing:            'Executing trades',
+  complete:             'Complete',
+  researching:          'Researching',
+  retrying:             'Retrying',
+  error:                'Error',
+};
+
+function phaseColor(phase: string): string {
+  if (phase === 'complete') return 'text-green-400';
+  if (phase === 'error') return 'text-red-400';
+  if (phase === 'idle') return 'text-[#8B949E]';
+  return 'text-yellow-400';
 }
 
 function fmt(isoStr: string | null, opts: Intl.DateTimeFormatOptions): string {
@@ -109,7 +132,7 @@ function AgentCard({ agentId, name, model, showLogs = false }: AgentCardProps) {
 
   useEffect(() => {
     fetchStatus();
-    const id = setInterval(fetchStatus, 30_000);
+    const id = setInterval(fetchStatus, 10_000);
     return () => {
       clearInterval(id);
       esRef.current?.close();
@@ -172,6 +195,31 @@ function AgentCard({ agentId, name, model, showLogs = false }: AgentCardProps) {
           <div>Next scheduled: <span className="text-white">{fmt(status?.nextRun ?? null, DATE_OPTS)}</span></div>
         )}
       </div>
+
+      {/* Phase indicator */}
+      {status?.phase && status.phase !== 'idle' && (
+        <div className={`text-xs font-mono flex items-center gap-2 ${phaseColor(status.phase)}`}>
+          <span>●</span>
+          <span>{PHASE_LABELS[status.phase] ?? status.phase}</span>
+          {status.plan_id && (
+            <span className="text-[#8B949E]">· {status.plan_id.slice(0, 8)}</span>
+          )}
+        </div>
+      )}
+
+      {/* Error banner */}
+      {status?.last_error && (
+        <div className="bg-red-900/20 border border-red-500/30 rounded px-3 py-2 space-y-1">
+          <p className="text-xs text-red-400 font-mono">{status.last_error}</p>
+          <button
+            onClick={handleRunNow}
+            disabled={running || !canRun}
+            className="text-xs px-2 py-0.5 bg-[#21262D] hover:bg-[#30363D] border border-red-500/30 text-red-400 rounded font-mono transition-colors disabled:opacity-40"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <button
