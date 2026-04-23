@@ -1,0 +1,91 @@
+<h2>Where should the new features live?</h2>
+<p class="subtitle">Choose how to organize Agent Schedules + Execution History in the nav</p>
+
+<div class="cards" style="gap:20px; margin-top:24px;">
+
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)" style="flex:1; min-width:260px;">
+    <div class="card-image" style="background:#0d1117; border-radius:6px 6px 0 0; padding:16px; font-family:monospace; font-size:12px;">
+      <div style="display:flex; gap:16px; border-bottom:1px solid #30363d; padding-bottom:10px; margin-bottom:12px;">
+        <span style="color:#58a6ff;">Dashboard</span>
+        <span style="color:#58a6ff;">Trade</span>
+        <span style="color:#58a6ff;">Approvals</span>
+        <span style="background:#238636; color:#fff; padding:2px 8px; border-radius:4px;">Agents</span>
+      </div>
+      <div style="color:#8b949e; font-size:11px; margin-bottom:8px;">— Agents page —</div>
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px; margin-bottom:8px;">
+        <div style="color:#e6edf3; margin-bottom:4px; font-size:11px;">Agent A (Claude)  Next: Mon 6am  <span style="background:#1f6feb; color:#fff; border-radius:3px; padding:1px 6px; font-size:10px;">Run Now</span></div>
+        <div style="color:#e6edf3; margin-bottom:4px; font-size:11px;">Agent B (GPT)     Next: Mon 6am  <span style="background:#1f6feb; color:#fff; border-radius:3px; padding:1px 6px; font-size:10px;">Run Now</span></div>
+        <div style="color:#e6edf3; font-size:11px;">Agent C (Exec)    Next: Tue 9am  <span style="background:#1f6feb; color:#fff; border-radius:3px; padding:1px 6px; font-size:10px;">Run Now</span></div>
+      </div>
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px;">
+        <div style="color:#8b949e; font-size:10px; margin-bottom:6px;">EXECUTION HISTORY</div>
+        <div style="color:#3fb950; font-size:11px;">2025-04-21 · APPROVED · AAPL +$5k, NVDA +$3k</div>
+        <div style="color:#f85149; font-size:11px;">2025-04-14 · REJECTED · TSLA +$8k</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Single "Agents" page</h3>
+      <p>Both schedules and history in one new page. Keeps nav clean with just one new item.</p>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)" style="flex:1; min-width:260px;">
+    <div class="card-image" style="background:#0d1117; border-radius:6px 6px 0 0; padding:16px; font-family:monospace; font-size:12px;">
+      <div style="display:flex; gap:16px; border-bottom:1px solid #30363d; padding-bottom:10px; margin-bottom:12px; flex-wrap:wrap;">
+        <span style="color:#58a6ff;">Dashboard</span>
+        <span style="color:#58a6ff;">Trade</span>
+        <span style="color:#58a6ff;">Approvals</span>
+        <span style="background:#238636; color:#fff; padding:2px 8px; border-radius:4px;">Agents</span>
+        <span style="background:#238636; color:#fff; padding:2px 8px; border-radius:4px;">History</span>
+      </div>
+      <div style="color:#8b949e; font-size:11px; margin-bottom:6px;">— Agents page —</div>
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px; margin-bottom:8px;">
+        <div style="color:#e6edf3; font-size:11px;">Agent A · Next: Mon 6am <span style="background:#1f6feb; color:#fff; border-radius:3px; padding:1px 6px; font-size:10px;">Run Now</span></div>
+        <div style="color:#e6edf3; font-size:11px; margin-top:4px;">Agent B · Next: Mon 6am <span style="background:#1f6feb; color:#fff; border-radius:3px; padding:1px 6px; font-size:10px;">Run Now</span></div>
+        <div style="color:#e6edf3; font-size:11px; margin-top:4px;">Agent C · Next: Tue 9am <span style="background:#1f6feb; color:#fff; border-radius:3px; padding:1px 6px; font-size:10px;">Run Now</span></div>
+      </div>
+      <div style="color:#8b949e; font-size:11px; margin-bottom:6px;">— History page —</div>
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px;">
+        <div style="color:#e6edf3; font-size:11px;">Full table of all runs, decisions, trades</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — "Agents" + "History" pages</h3>
+      <p>Separate pages for schedules and history. More room for a detailed history table.</p>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)" style="flex:1; min-width:260px;">
+    <div class="card-image" style="background:#0d1117; border-radius:6px 6px 0 0; padding:16px; font-family:monospace; font-size:12px;">
+      <div style="display:flex; gap:16px; border-bottom:1px solid #30363d; padding-bottom:10px; margin-bottom:12px;">
+        <span style="color:#58a6ff;">Dashboard</span>
+        <span style="color:#58a6ff;">Trade</span>
+        <span style="color:#58a6ff;">Approvals</span>
+      </div>
+      <div style="color:#8b949e; font-size:11px; margin-bottom:6px;">— Dashboard (expanded) —</div>
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px; margin-bottom:8px;">
+        <div style="color:#8b949e; font-size:10px; margin-bottom:4px;">PORTFOLIO</div>
+        <div style="color:#e6edf3; font-size:11px;">Equity $100k · Cash $25k · P&L +$420</div>
+      </div>
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px; margin-bottom:8px;">
+        <div style="color:#8b949e; font-size:10px; margin-bottom:4px;">AGENT SCHEDULES</div>
+        <div style="color:#e6edf3; font-size:11px;">A · Mon 6am <span style="background:#1f6feb; color:#fff; border-radius:3px; padding:1px 5px; font-size:10px;">Run</span>  B · Mon 6am <span style="background:#1f6feb; color:#fff; border-radius:3px; padding:1px 5px; font-size:10px;">Run</span></div>
+      </div>
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px;">
+        <div style="color:#8b949e; font-size:10px; margin-bottom:4px;">RECENT RUNS</div>
+        <div style="color:#3fb950; font-size:10px;">Apr 21 · APPROVED · 3 trades</div>
+        <div style="color:#f85149; font-size:10px;">Apr 14 · REJECTED</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Extend Dashboard</h3>
+      <p>Add both panels to the existing Dashboard. No new nav items needed.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:20px; font-size:12px;">Click a card to select, then tell me in the terminal.</p>

@@ -1,0 +1,89 @@
+<h2>What should "Run Now" look like while running?</h2>
+<p class="subtitle">Agent A/B take 1–3 minutes to complete. Pick the feedback style.</p>
+
+<div class="cards" style="gap:20px; margin-top:24px;">
+
+  <!-- Option A: Spinner only -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)" style="flex:1; min-width:220px;">
+    <div class="card-image" style="background:#0d1117; border-radius:6px 6px 0 0; padding:16px; font-family:monospace; font-size:12px;">
+      <div style="color:#8b949e; font-size:10px; margin-bottom:8px;">AGENT A — Claude Sonnet</div>
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:6px; padding:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="color:#e6edf3;">Next run: Mon Apr 28 · 6:00 AM</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:#f0883e; font-size:11px;">⟳ Running...</span>
+          <button style="background:#21262d; color:#8b949e; border:1px solid #30363d; border-radius:5px; padding:4px 12px; font-size:11px; cursor:not-allowed;">Running…</button>
+        </div>
+      </div>
+      <div style="color:#8b949e; font-size:10px; margin-top:10px; margin-bottom:8px;">AGENT B — GPT-4o-mini</div>
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:6px; padding:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="color:#e6edf3;">Next run: Mon Apr 28 · 6:00 AM</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:#3fb950; font-size:11px;">✓ Done — Apr 21, 6:03 AM</span>
+          <button style="background:#1f6feb; color:#fff; border:none; border-radius:5px; padding:4px 12px; font-size:11px;">Run Now</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Simple status badge</h3>
+      <p>Button disables and shows "Running…" while active. Done badge appears on completion.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Live log -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)" style="flex:1; min-width:220px;">
+    <div class="card-image" style="background:#0d1117; border-radius:6px 6px 0 0; padding:16px; font-family:monospace; font-size:12px;">
+      <div style="color:#8b949e; font-size:10px; margin-bottom:8px;">AGENT A — Claude Sonnet</div>
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:6px; padding:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="color:#f0883e; font-size:11px;">⟳ Running... (elapsed: 0:42)</span>
+          <button style="background:#21262d; color:#8b949e; border:1px solid #30363d; border-radius:5px; padding:4px 10px; font-size:10px; cursor:not-allowed;">Running…</button>
+        </div>
+        <div style="background:#010409; border:1px solid #30363d; border-radius:4px; padding:8px; font-size:10px; color:#3fb950; line-height:1.6;">
+          <div>[06:00:01] Calling Anthropic API...</div>
+          <div>[06:00:03] Received 4096 tokens</div>
+          <div>[06:00:03] Validating sections... ✓</div>
+          <div style="color:#f0883e;">[06:00:04] Writing strategy_claude_2025-17.md...</div>
+          <div style="color:#8b949e;">█ <span style="animation:blink 1s infinite;">_</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Live log output</h3>
+      <p>Streams log lines into a terminal-style box under the agent card while running.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Toast + polling -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)" style="flex:1; min-width:220px;">
+    <div class="card-image" style="background:#0d1117; border-radius:6px 6px 0 0; padding:16px; font-family:monospace; font-size:12px;">
+      <div style="color:#8b949e; font-size:10px; margin-bottom:8px;">AGENT A — Claude Sonnet</div>
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:6px; padding:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <span style="color:#e6edf3;">Next run: Mon Apr 28 · 6:00 AM</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:#f0883e; font-size:11px;">⟳ Running...</span>
+          <button style="background:#21262d; color:#8b949e; border:1px solid #30363d; border-radius:5px; padding:4px 12px; font-size:11px;">Running…</button>
+        </div>
+      </div>
+      <!-- Toast notification mockup -->
+      <div style="margin-top:12px; background:#1f2937; border:1px solid #3fb950; border-left:3px solid #3fb950; border-radius:5px; padding:8px 12px; font-size:11px; color:#3fb950;">
+        ✓ Agent A completed — strategy_claude_2025-17.md written
+      </div>
+      <div style="margin-top:6px; background:#1f2937; border:1px solid #1f6feb; border-left:3px solid #1f6feb; border-radius:5px; padding:8px 12px; font-size:11px; color:#58a6ff;">
+        ℹ Agent B is now ready to run
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Toast notifications</h3>
+      <p>Fire-and-forget. Button resets, a toast pops when done. Page polls quietly in the background.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:20px; font-size:12px;">Click a card, then reply in the terminal.</p>
