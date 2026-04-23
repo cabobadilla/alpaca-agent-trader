@@ -17,6 +17,7 @@ os.environ["STRATEGIES_DIR"] = "/tmp/test_strategies_b"
 os.environ["AGENT_B_CRON"] = "0 6 * * 1"
 os.environ["LOG_LEVEL"] = "INFO"
 os.environ["APPROVAL_BRIDGE_URL"] = "http://approval-bridge:8080"
+os.environ["EVENTS_DIR"] = "/tmp/test_events_b"
 
 
 # ---------------------------------------------------------------------------

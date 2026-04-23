@@ -22,6 +22,9 @@ from apscheduler.triggers.cron import CronTrigger
 from config import config
 from agent import run_research_with_retry  # noqa: F401 — kept for direct import compatibility
 from server import start as _start_flask, trigger_run as _scheduled_run
+from event_logger import EventLogger
+
+_elog = EventLogger(agent="agent-b")
 
 logging.basicConfig(
     level=config.LOG_LEVEL,
@@ -71,6 +74,7 @@ def _build_trigger() -> CronTrigger:
 
 def main() -> None:
     logger.info("agent-b starting — cron: '%s'", config.AGENT_B_CRON)
+    _elog.phase("idle", message="agent-b started, waiting for scheduled run")
 
     scheduler = BlockingScheduler(timezone=config.TZ)
     trigger = _build_trigger()

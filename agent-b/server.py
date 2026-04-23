@@ -5,7 +5,8 @@ Flask HTTP server for on-demand trigger and live log streaming.
 Runs in a daemon thread alongside BlockingScheduler.
 
 Endpoints:
-  GET  /status  — {"running": bool, "lastRun": ISO8601|null}
+  GET  /status  — {"running": bool, "lastRun": ISO8601|null, "phase": str|null,
+                   "plan_id": str|null, "phase_updated_at": ISO8601|null, "last_error": str|null}
   POST /trigger — 200 {"status":"started"} | 409 {"status":"already_running"}
   GET  /logs    — SSE stream; sends "__done__" on completion
 """
@@ -16,6 +17,7 @@ import logging
 import os
 import threading
 from datetime import datetime
+from pathlib import Path
 
 from flask import Flask, Response, jsonify
 
@@ -28,6 +30,7 @@ _log_cond = threading.Condition(_lock)
 
 _STRATEGIES_DIR = os.environ.get("STRATEGIES_DIR", "/data/strategies")
 _STRATEGY_PREFIX = "gpt"
+_PHASE_FILE = Path("/tmp/agent-b.phase")
 
 
 class _SSEHandler(logging.Handler):
@@ -51,7 +54,22 @@ def _get_last_run() -> str | None:
 def status():
     with _lock:
         running = _running
-    return jsonify({"running": running, "lastRun": _get_last_run()})
+
+    phase_data: dict = {}
+    try:
+        if _PHASE_FILE.exists():
+            phase_data = json.loads(_PHASE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+
+    return jsonify({
+        "running": running,
+        "lastRun": _get_last_run(),
+        "phase": phase_data.get("phase"),
+        "plan_id": phase_data.get("plan_id"),
+        "phase_updated_at": phase_data.get("updated_at"),
+        "last_error": phase_data.get("error_message") if phase_data.get("phase") == "error" else None,
+    })
 
 
 @app.route("/trigger", methods=["POST"])

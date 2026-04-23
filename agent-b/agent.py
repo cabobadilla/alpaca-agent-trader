@@ -19,6 +19,9 @@ import openai
 from config import config
 from prompts import WEEKLY_RESEARCH_PROMPT
 import storage
+from event_logger import EventLogger
+
+_elog = EventLogger(agent="agent-b")
 
 logger = logging.getLogger(__name__)
 
@@ -112,10 +115,18 @@ def run_research_with_retry() -> bool:
 
     Returns True as soon as any attempt succeeds.
     """
+    _elog.phase("researching", message="Starting research run")
     for attempt in range(1, MAX_RETRIES + 1):
         logger.info("agent-b: research attempt %d/%d", attempt, MAX_RETRIES)
+        if attempt > 1:
+            _elog.phase(
+                "retrying",
+                message=f"Retry attempt {attempt}/{MAX_RETRIES}",
+                metadata={"attempt": attempt, "max": MAX_RETRIES},
+            )
         if run_research():
             logger.info("agent-b: research succeeded on attempt %d", attempt)
+            _elog.phase("complete", message=f"Research complete on attempt {attempt}")
             return True
 
         if attempt < MAX_RETRIES:
@@ -128,7 +139,7 @@ def run_research_with_retry() -> bool:
         else:
             logger.error("agent-b: all %d attempts failed", MAX_RETRIES)
 
-    # All attempts exhausted — send alert
+    _elog.error(f"All {MAX_RETRIES} research attempts failed")
     _send_failure_alert()
     return False
 
