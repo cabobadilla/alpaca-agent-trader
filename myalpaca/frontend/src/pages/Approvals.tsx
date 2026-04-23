@@ -69,6 +69,7 @@ export default function Approvals() {
   const [deciding, setDeciding] = useState<Record<string, boolean>>({});
   const [reasons, setReasons]   = useState<Record<string, string>>({});
   const [showReason, setShowReason] = useState<Record<string, boolean>>({});
+  const [decideError, setDecideError] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   function fetchPlans() {
@@ -90,6 +91,7 @@ export default function Approvals() {
 
   async function decide(planId: string, decision: 'APPROVED' | 'REJECTED') {
     setDeciding((d) => ({ ...d, [planId]: true }));
+    setDecideError((e) => ({ ...e, [planId]: '' }));
     try {
       const res = await fetch(`/api/approvals/${planId}/decide`, {
         method: 'POST',
@@ -100,7 +102,7 @@ export default function Approvals() {
       if (data.error) throw new Error(data.error);
       fetchPlans();
     } catch (e: any) {
-      setError(e.message);
+      setDecideError((err) => ({ ...err, [planId]: e.message }));
     } finally {
       setDeciding((d) => ({ ...d, [planId]: false }));
     }
@@ -142,7 +144,7 @@ export default function Approvals() {
         const isDeciding = deciding[plan.plan_id];
 
         return (
-          <div key={plan.plan_id} className="bg-[#161B22] border border-[#30363D] rounded overflow-hidden">
+          <div key={plan.plan_id} className="bg-[#161B22] border border-[#30363D] rounded">
             {/* Header */}
             <div className="px-5 py-4 flex flex-wrap items-center gap-3 border-b border-[#30363D]">
               <span className="text-white font-mono text-sm font-semibold">{plan.date}</span>
@@ -246,7 +248,7 @@ export default function Approvals() {
               {/* Action bar */}
               {isPending && (
                 <div className="border-t border-[#30363D] pt-4 space-y-3">
-                  <div className="flex gap-3 items-center">
+                  <div className="flex flex-wrap gap-3 items-center min-w-0">
                     <button
                       onClick={() => decide(plan.plan_id, 'APPROVED')}
                       disabled={isDeciding}
@@ -274,6 +276,11 @@ export default function Approvals() {
                       </button>
                     )}
                   </div>
+                  {decideError[plan.plan_id] && (
+                    <div className="bg-red-900/20 border border-red-500/30 rounded px-3 py-2">
+                      <p className="text-red-400 font-mono text-xs">{decideError[plan.plan_id]}</p>
+                    </div>
+                  )}
                   {showReason[plan.plan_id] && (
                     <input
                       type="text"
@@ -288,15 +295,27 @@ export default function Approvals() {
                 </div>
               )}
 
-              {/* Decided state */}
-              {!isPending && plan.decision && (
-                <div className="border-t border-[#30363D] pt-4">
-                  <p className="text-xs text-[#8B949E] font-mono">
-                    Decision: {statusBadge(plan.decision)}
-                    {plan.decided_at && (
-                      <span className="ml-2">at {new Date(plan.decided_at).toLocaleString()}</span>
-                    )}
-                  </p>
+              {/* Decided state + retry */}
+              {!isPending && (
+                <div className="border-t border-[#30363D] pt-4 space-y-3">
+                  {plan.decision && (
+                    <p className="text-xs text-[#8B949E] font-mono">
+                      Decision: {statusBadge(plan.decision)}
+                      {plan.decided_at && (
+                        <span className="ml-2">at {new Date(plan.decided_at).toLocaleString()}</span>
+                      )}
+                    </p>
+                  )}
+                  {(plan.status === 'REJECTED' || plan.status === 'EXPIRED') && (
+                    <button
+                      onClick={async () => {
+                        await fetch('/api/agents/c/trigger', { method: 'POST' });
+                      }}
+                      className="text-xs px-3 py-1.5 bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] text-[#8B949E] hover:text-white rounded font-mono transition-colors"
+                    >
+                      Re-run Agent C
+                    </button>
+                  )}
                 </div>
               )}
             </div>
