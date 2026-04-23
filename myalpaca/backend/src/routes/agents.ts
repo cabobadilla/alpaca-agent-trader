@@ -91,11 +91,24 @@ router.get('/:agent/status', async (req: Request, res: Response) => {
 
   let running = false;
   let lastRun: string | null = null;
+  const extra: Record<string, unknown> = {};
+
   try {
     const r = await fetch(`http://${host}:${port}/status`);
-    const data = await r.json() as { running: boolean; lastRun: string | null };
+    const data = await r.json() as {
+      running: boolean;
+      lastRun: string | null;
+      phase?: string | null;
+      plan_id?: string | null;
+      phase_updated_at?: string | null;
+      last_error?: string | null;
+    };
     running = data.running;
     lastRun = data.lastRun;
+    extra.phase = data.phase ?? null;
+    extra.plan_id = data.plan_id ?? null;
+    extra.phase_updated_at = data.phase_updated_at ?? null;
+    extra.last_error = data.last_error ?? null;
   } catch {
     // agent unreachable — report not running
   }
@@ -108,7 +121,6 @@ router.get('/:agent/status', async (req: Request, res: Response) => {
     // ignore invalid cron
   }
 
-  const extra: Record<string, unknown> = {};
   if (agent === 'c') {
     extra.strategyReady = await checkStrategiesReady();
   }
