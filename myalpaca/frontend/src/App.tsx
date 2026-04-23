@@ -4,6 +4,7 @@ import Trade from './pages/Trade';
 import Approvals from './pages/Approvals';
 import Agents from './pages/Agents';
 import History from './pages/History';
+import Logs from './pages/Logs';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
             { to: '/trade',   label: 'Trade'     },
             { to: '/approvals', label: 'Approvals' },
             { to: '/agents',  label: 'Agents'    },
+            { to: '/logs',    label: 'Logs'      },
             { to: '/history', label: 'History'   },
           ].map(({ to, label }) => (
             <NavLink
@@ -43,6 +45,7 @@ function App() {
           <Route path="/trade"     element={<Trade />} />
           <Route path="/approvals" element={<Approvals />} />
           <Route path="/agents"    element={<Agents />} />
+          <Route path="/logs"      element={<Logs />} />
           <Route path="/history"   element={<History />} />
         </Routes>
       </main>
