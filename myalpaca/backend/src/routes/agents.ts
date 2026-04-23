@@ -52,7 +52,9 @@ router.post('/:agent/trigger', async (req: Request, res: Response) => {
   if (!isValidAgent(agent)) return res.status(404).json({ error: 'Unknown agent' });
   const { host, port } = AGENT_HOSTS[agent];
   try {
-    const r = await fetch(`http://${host}:${port}/trigger`, { method: 'POST' });
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 5000);
+    const r = await fetch(`http://${host}:${port}/trigger`, { method: 'POST', signal: ac.signal }).finally(() => clearTimeout(timer));
     const data = await r.json();
     res.status(r.status).json(data);
   } catch (err: any) {
@@ -94,7 +96,9 @@ router.get('/:agent/status', async (req: Request, res: Response) => {
   const extra: Record<string, unknown> = {};
 
   try {
-    const r = await fetch(`http://${host}:${port}/status`);
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 5000);
+    const r = await fetch(`http://${host}:${port}/status`, { signal: ac.signal }).finally(() => clearTimeout(timer));
     const data = await r.json() as {
       running: boolean;
       lastRun: string | null;

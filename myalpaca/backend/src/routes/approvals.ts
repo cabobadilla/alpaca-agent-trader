@@ -12,7 +12,7 @@ async function proxyTo(bridgePath: string, req: Request, res: Response): Promise
     const init: RequestInit = { method: req.method };
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       init.headers = { 'Content-Type': 'application/json' };
-      init.body = JSON.stringify(req.body);
+      init.body = JSON.stringify(req.body ?? {});
     }
     const upstream = await fetch(url, init);
     const body = await upstream.text();
@@ -34,7 +34,9 @@ router.get('/all', async (_req: Request, res: Response) => {
       await Promise.all(
         jsonFiles.map(async (file) => {
           try {
-            const raw = await fs.readFile(path.join(APPROVALS_DIR, file), 'utf8');
+            const resolved = path.resolve(APPROVALS_DIR, file);
+            if (!resolved.startsWith(path.resolve(APPROVALS_DIR) + path.sep)) return null;
+            const raw = await fs.readFile(resolved, 'utf8');
             return JSON.parse(raw);
           } catch {
             return null;
@@ -48,14 +50,18 @@ router.get('/all', async (_req: Request, res: Response) => {
   }
 });
 
+const PLAN_ID_RE = /^[\w-]+$/;
+
 // GET /api/approvals/:planId/status
-router.get('/:planId/status', (req, res) =>
-  proxyTo(`/plans/${req.params.planId}/status`, req, res),
-);
+router.get('/:planId/status', (req, res) => {
+  if (!PLAN_ID_RE.test(req.params.planId)) return res.status(400).json({ error: 'Invalid plan ID' });
+  return proxyTo(`/plans/${req.params.planId}/status`, req, res);
+});
 
 // POST /api/approvals/:planId/decide
-router.post('/:planId/decide', (req, res) =>
-  proxyTo(`/plans/${req.params.planId}/decide`, req, res),
-);
+router.post('/:planId/decide', (req, res) => {
+  if (!PLAN_ID_RE.test(req.params.planId)) return res.status(400).json({ error: 'Invalid plan ID' });
+  return proxyTo(`/plans/${req.params.planId}/decide`, req, res);
+});
 
 export default router;

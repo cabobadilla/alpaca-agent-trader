@@ -22,9 +22,11 @@ router.get('/', async (req: Request, res: Response) => {
 
   const events = (
     await Promise.all(
-      jsonFiles.slice(0, limit * 5).map(async (file) => {
+      jsonFiles.slice(0, Math.min(limit * 3, 500)).map(async (file) => {
         try {
-          const raw = await fs.readFile(path.join(EVENTS_DIR, file), 'utf8');
+          const resolved = path.resolve(EVENTS_DIR, file);
+          if (!resolved.startsWith(path.resolve(EVENTS_DIR) + path.sep)) return null;
+          const raw = await fs.readFile(resolved, 'utf8');
           return JSON.parse(raw);
         } catch {
           return null;
@@ -55,6 +57,7 @@ router.get('/stream', async (req: Request, res: Response) => {
   } catch {}
 
   const poll = async () => {
+    if (res.writableEnded) return;
     try {
       const files = (await fs.readdir(EVENTS_DIR))
         .filter(f => f.endsWith('.json'))
@@ -63,10 +66,14 @@ router.get('/stream', async (req: Request, res: Response) => {
 
       for (const file of files) {
         try {
-          const raw = await fs.readFile(path.join(EVENTS_DIR, file), 'utf8');
+          const resolved = path.resolve(EVENTS_DIR, file);
+          if (!resolved.startsWith(path.resolve(EVENTS_DIR) + path.sep)) continue;
+          const raw = await fs.readFile(resolved, 'utf8');
           const event = JSON.parse(raw);
-          res.write(`data: ${JSON.stringify(event)}\n\n`);
-          lastSeenFile = file;
+          if (!res.writableEnded) {
+            res.write(`data: ${JSON.stringify(event)}\n\n`);
+            lastSeenFile = file;
+          }
         } catch {
           // skip unreadable files
         }

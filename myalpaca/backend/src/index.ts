@@ -17,7 +17,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ensure logs directory exists
-fs.mkdirSync('/app/logs', { recursive: true });
+try { fs.mkdirSync('/app/logs', { recursive: true }); } catch {}
 
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
 app.use(express.json());
