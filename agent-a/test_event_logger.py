@@ -81,11 +81,13 @@ def test_error_sets_phase_to_error():
 
 
 def test_never_raises_on_bad_dir():
+    from pathlib import Path
     from event_logger import EventLogger
     el = EventLogger(agent="x", events_dir="/nonexistent/readonly/path/abc")
-    el.phase("idle")   # must not raise
-    el.error("oops")   # must not raise
-    el.event("trade_executed")  # must not raise
+    el._phase_file = Path("/nonexistent/readonly/path/abc/x.phase")  # also test phase file failure
+    el.phase("idle")
+    el.error("oops")
+    el.event("trade_executed")
     print("  ✓ test_never_raises_on_bad_dir")
 
 

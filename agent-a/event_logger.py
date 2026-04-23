@@ -83,8 +83,8 @@ class EventLogger:
         )
         self._write(event)
         payload: dict = {"phase": phase, "plan_id": plan_id, "updated_at": event["timestamp"]}
-        if phase == "error" and message:
-            payload["error_message"] = message
+        if phase == "error":
+            payload["error_message"] = message  # always set when phase is "error"
         self._write_phase_file(payload)
 
     def error(
