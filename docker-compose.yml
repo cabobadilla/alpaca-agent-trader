@@ -13,6 +13,7 @@ volumes:
   strategies-data:
   tradeplan-data:
   approval-data:
+  events-data:
 
 services:
 
@@ -34,6 +35,7 @@ services:
       - STRATEGIES_DIR=${STRATEGIES_DIR:-/data/strategies}
     volumes:
       - strategies-data:/data/strategies
+      - events-data:/data/events
     networks:
       - alpaca-net
     # No host port mapping — internal only
@@ -56,6 +58,7 @@ services:
       - STRATEGIES_DIR=${STRATEGIES_DIR:-/data/strategies}
     volumes:
       - strategies-data:/data/strategies
+      - events-data:/data/events
     networks:
       - alpaca-net
     # No host port mapping — internal only
@@ -85,6 +88,7 @@ services:
       - strategies-data:/data/strategies
       - tradeplan-data:/data/tradeplans
       - approval-data:/data/approvals
+      - events-data:/data/events
     networks:
       - alpaca-net
     depends_on:
@@ -148,10 +152,12 @@ services:
       - STRATEGIES_DIR=${STRATEGIES_DIR:-/data/strategies}
       - TRADEPLANS_DIR=${TRADEPLANS_DIR:-/data/tradeplans}
       - APPROVALS_DIR=${APPROVALS_DIR:-/data/approvals}
+      - EVENTS_DIR=${EVENTS_DIR:-/data/events}
     volumes:
       - strategies-data:/data/strategies:ro
       - tradeplan-data:/data/tradeplans:ro
       - approval-data:/data/approvals:ro
+      - events-data:/data/events:ro
     ports:
       - "3001:3001"
     networks:
