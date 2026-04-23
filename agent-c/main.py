@@ -162,7 +162,17 @@ async def run_daily() -> None:
     logger.info("Trade plan generated: %s (%d trades)", plan_id, len(plan.get("trades", [])))
 
     # ── Step 6: persist trade plan ────────────────────────────────────────────
-    write_tradeplan(plan)
+    if not write_tradeplan(plan):
+        msg = "Failed to persist trade plan to disk — aborting"
+        logger.error(msg)
+        _elog.error(msg, plan_id=plan_id)
+        bridge.send_notification(
+            plan_id=plan_id,
+            ntype="ALERT",
+            subject=f"[agent-c] ABORT: Trade plan write failed — {plan_id}",
+            html=f"<p>{msg}</p>",
+        )
+        return
 
     # ── Step 7: submit to approval bridge ────────────────────────────────────
     try:
@@ -257,7 +267,13 @@ def main() -> None:
         day_of_week=cron_parts[4],
         timezone=config.TZ,
     )
-    scheduler.add_job(_run_daily_sync, trigger=trigger, id="agent_c_execution")
+    scheduler.add_job(
+        _run_daily_sync,
+        trigger=trigger,
+        id="agent_c_execution",
+        max_instances=1,
+        coalesce=True,
+    )
 
     # Heartbeat job (every 30 seconds)
     scheduler.add_job(

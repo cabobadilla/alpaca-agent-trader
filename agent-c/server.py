@@ -79,6 +79,11 @@ def _run() -> None:
         asyncio.run(run_daily())
     except Exception as exc:
         logging.error("Agent C run failed: %s", exc)
+        try:
+            from main import _elog
+            _elog.error(f"run_daily() raised unexpectedly: {exc}")
+        except Exception:
+            pass
     finally:
         with _lock:
             _running = False
